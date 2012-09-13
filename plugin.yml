@@ -1,0 +1,32 @@
+name: Survival
+main: to.joe.j2mc.Survival.J2MC_Survival
+version: 0.1
+website: http://forums.joe.to
+author: Eviltechie
+description: Hunger games
+commands:
+  join:
+    description: Join the survival game
+    usage: /join
+    permission: j2mc.survival.join
+    permission-message: You may not join the survival game
+  leave:
+    description: Leave the survival game
+    usage: /leave
+    permission: j2mc.survival.leave
+    permission-message: You may not leave the survival game
+  ready:
+    description: Toggle your readiness to start
+    usage: /ready
+    permission: j2mc.survival.ready
+    permission-message: You may not indicate ready
+permissions:
+  j2mc.survival.join:
+    description: Join the survival game
+    default: true
+  j2mc.survival.leave:
+    description: Leave the survival game
+    default: true
+  j2mc.survival.ready:
+    description: Toggle readiness to start
+    default: true
