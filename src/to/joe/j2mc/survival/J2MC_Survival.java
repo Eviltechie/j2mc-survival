@@ -179,6 +179,7 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
 
     @Override
     public void onDisable() {
+        this.getServer().unloadWorld(gameWorld, false);
         deleteFolder(new File(gameWorld.getName()));
     }
 
