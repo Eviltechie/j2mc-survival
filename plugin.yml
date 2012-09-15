@@ -1,5 +1,5 @@
 name: Survival
-main: to.joe.j2mc.Survival.J2MC_Survival
+main: to.joe.j2mc.survival.J2MC_Survival
 version: 0.1
 website: http://forums.joe.to
 author: Eviltechie
@@ -20,6 +20,9 @@ commands:
     usage: /ready
     permission: j2mc.survival.ready
     permission-message: You may not indicate ready
+  surv:
+    description: Admin testing stuff
+    usage: /surv
 permissions:
   j2mc.survival.join:
     description: Join the survival game

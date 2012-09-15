@@ -1,9 +1,16 @@
 package to.joe.j2mc.survival;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.ArrayList;
 
 import org.bukkit.ChatColor;
 import org.bukkit.World;
+import org.bukkit.WorldCreator;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -14,8 +21,46 @@ import org.bukkit.plugin.java.JavaPlugin;
 import to.joe.j2mc.core.J2MC_Manager;
 import to.joe.j2mc.survival.command.JoinCommand;
 import to.joe.j2mc.survival.command.LeaveCommand;
+import to.joe.j2mc.survival.command.SurvCommand;
 
 public class J2MC_Survival extends JavaPlugin implements Listener {
+
+    public void copyFolder(File src, File dest) throws IOException {
+        if (src.isDirectory()) {
+            if (!dest.exists()) {
+                dest.mkdir();
+            }
+            String files[] = src.list();
+            for (String file : files) {
+                File srcFile = new File(src, file);
+                File destFile = new File(dest, file);
+                copyFolder(srcFile, destFile);
+            }
+        } else {
+            InputStream in = new FileInputStream(src);
+            OutputStream out = new FileOutputStream(dest);
+            byte[] buffer = new byte[1024];
+            int length;
+            while ((length = in.read(buffer)) > 0) {
+                out.write(buffer, 0, length);
+            }
+            in.close();
+            out.close();
+        }
+    }
+
+    public boolean deleteFolder(File dir) {
+        if (dir.isDirectory()) {
+            String[] children = dir.list();
+            for (int i = 0; i < children.length; i++) {
+                boolean success = deleteFolder(new File(dir, children[i]));
+                if (!success) {
+                    return false;
+                }
+            }
+        }
+        return dir.delete();
+    }
 
     //TODO /join while gamestatus is preround adds you to participants and announces your join
     //TODO /join while gamestatus is in countdown adds you to participants, announces your join, and instantly runs the setup (clear inventory, spawn, etc)
@@ -41,11 +86,9 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
     //TODO Config needs minplayers, maxplayers
     //TODO Config needs blocks that can be broken (or not)
     //TODO Config needs lobby
-    //TODO Config needs countdownlength, 
 
     //TODO Thing that prevents blocks from being broken
 
-    //TODO Mapcycle
     //TODO Voting for maps
 
     //TODO Spectator mode, vanish players, filter chat
@@ -61,26 +104,63 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
     public GameStatus status = GameStatus.PreRound;
     public ArrayList<String> participants = new ArrayList<String>();
     public ArrayList<String> deadPlayers = new ArrayList<String>();
-    World gameWorld;
+    public ArrayList<String> mapCycle;
     int minPlayers = 2;
     public int maxPlayers = 2;
+    int countdown;
+    int maxWait;
+    double minReadyPercent;
+    World lobbyWorld;
+    World gameWorld;
 
-    private void loadMap() {
-        //TODO Move all players to other world
-        //TODO Unload the map
-        //TODO Replace the map
-        //TODO Move all players back
+    public void loadMainConfig() {
+        countdown = this.getConfig().getInt("countdown");
+        maxWait = this.getConfig().getInt("maxWait");
+        minReadyPercent = this.getConfig().getDouble("percentReady");
+        mapCycle = new ArrayList<String>(this.getConfig().getStringList("mapcycle"));
+    }
+
+    public void loadMap(boolean firstLoad) {
+        for (Player p : this.getServer().getOnlinePlayers()) {
+            toLobby(p);
+        }
+        String newMap = mapCycle.get(0);
+        mapCycle.add(mapCycle.remove(0));
+        if (!firstLoad) {
+            this.getServer().unloadWorld(gameWorld, false);
+            deleteFolder(new File(gameWorld.getName()));
+        }
+        try {
+            copyFolder(new File(newMap + "_bak"), new File(newMap));
+        } catch (IOException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
+
+        gameWorld = this.getServer().createWorld(new WorldCreator(newMap));
+        this.getServer().getLogger().info("Sucessfully loaded lobby");
+
+        for (Player p : this.getServer().getOnlinePlayers()) {
+            p.teleport(gameWorld.getSpawnLocation());
+        }
         status = GameStatus.PreRound;
-        //TODO gameWorld = something
+    }
+
+    public void toLobby(Player p) {
+        p.teleport(lobbyWorld.getSpawnLocation());
     }
 
     @Override
     public void onEnable() {
         //TODO Load map configs
+        this.getConfig().options().copyDefaults(true);
+        this.saveConfig();
+        loadMainConfig();
 
         this.getServer().getPluginManager().registerEvents(this, this);
         this.getCommand("join").setExecutor(new JoinCommand(this));
         this.getCommand("leave").setExecutor(new LeaveCommand(this));
+        this.getCommand("surv").setExecutor(new SurvCommand(this));
 
         //Run announceDead() once per day
         J2MC_Manager.getCore().getServer().getScheduler().scheduleSyncRepeatingTask(this, new Runnable() {
@@ -90,6 +170,16 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
                     announceDead();
             }
         }, 1000, 1000);
+
+        //We are assuming that the first world loaded (which should be defined in server.properties) will be the lobby.
+        //Also good if the plugin breaks.
+        lobbyWorld = this.getServer().getWorlds().get(0);
+        loadMap(true);
+    }
+
+    @Override
+    public void onDisable() {
+        deleteFolder(new File(gameWorld.getName()));
     }
 
     private void announceDead() {
