@@ -16,7 +16,9 @@ import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
+import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -202,6 +204,46 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
         this.getServer().unloadWorld(gameWorld, false);
         deleteFolder(new File(gameWorld.getName()));
     }
+    
+    public void scheduleCountdownMessage(final int time, final int totalTime) {
+        getServer().getScheduler().scheduleSyncDelayedTask(this, new Runnable() {
+            @Override
+            public void run() {
+                int number = totalTime-time;
+                getServer().broadcastMessage(ChatColor.AQUA + "" + number);
+            }
+        }, (totalTime-time)*3);
+    }
+    
+    public void startCountdown() {
+        status = GameStatus.Countdown;
+        spm.spawnPlayers();
+        getServer().getScheduler().scheduleSyncDelayedTask(this, new Runnable() {
+            @Override
+            public void run() {
+                startGame();
+            }
+        }, countdown*3);
+        getServer().broadcastMessage(ChatColor.AQUA + "The survival games begin in " + countdown + " seconds");
+        scheduleCountdownMessage(25, countdown);
+        scheduleCountdownMessage(20, countdown);
+        scheduleCountdownMessage(15, countdown);
+        scheduleCountdownMessage(10, countdown);
+        scheduleCountdownMessage(9, countdown);
+        scheduleCountdownMessage(8, countdown);
+        scheduleCountdownMessage(7, countdown);
+        scheduleCountdownMessage(6, countdown);
+        scheduleCountdownMessage(5, countdown);
+        scheduleCountdownMessage(4, countdown);
+        scheduleCountdownMessage(3, countdown);
+        scheduleCountdownMessage(2, countdown);
+        scheduleCountdownMessage(1, countdown);
+    }
+    
+    public void startGame() {
+        getServer().broadcastMessage(ChatColor.AQUA + "BEGIN!");
+        status = GameStatus.InGame;
+    }
 
     private void announceDead() {
         if (deadPlayers.size() == 0) {
@@ -258,4 +300,25 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
             event.setDeathMessage("");
         }
     }
+    
+    @EventHandler
+    public void onPlayerMove(PlayerMoveEvent event) {
+        return;
+        if (status == GameStatus.Countdown && participants.contains(event.getPlayer().getName()))
+            event.setCancelled(true);
+    }
+    
+    @EventHandler
+    public void onBlockBreak(BlockBreakEvent event) {
+        if ((status == GameStatus.InGame || status == GameStatus.Countdown) && participants.contains(event.getPlayer().getName()) && !breakableBlocks.contains(event.getBlock().getTypeId()))
+            event.setCancelled(true);
+    }
+    
+    /*
+    @EventHandler
+    public void onRightClick(PlayerInteractEvent event) {
+        Location l = event.getClickedBlock().getLocation();
+        getServer().getLogger().info("- " + l.getBlockX() + "," + l.getBlockY() + "," + l.getBlockZ());
+    }
+    */
 }

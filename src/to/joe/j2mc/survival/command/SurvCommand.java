@@ -38,7 +38,15 @@ public class SurvCommand extends MasterCommand {
             sender.sendMessage(this.plugin.mapCycle.toString());
             return;
         }
-        sender.sendMessage("lobby, worlds, nextmap, mapcycle");
+        if (args[0].equalsIgnoreCase("countdown")) {
+            this.plugin.startCountdown();
+            return;
+        }
+        if (args[0].equalsIgnoreCase("start")) {
+            this.plugin.startGame();
+            return;
+        }
+        sender.sendMessage("lobby, worlds, nextmap, mapcycle, countdown, start");
     }
 
 }
