@@ -1,6 +1,5 @@
 package to.joe.j2mc.survival.command;
 
-import org.bukkit.ChatColor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
@@ -18,10 +17,6 @@ public class SurvCommand extends MasterCommand {
 
     @Override
     public void exec(CommandSender sender, String commandName, String[] args, Player player, boolean isPlayer) {
-        if (!isPlayer) {
-            sender.sendMessage(ChatColor.RED + "Only players may use this command");
-            return;
-        }
         if (args[0].equalsIgnoreCase("lobby")) {
             this.plugin.toLobby(player);
             return;

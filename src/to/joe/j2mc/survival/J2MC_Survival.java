@@ -8,17 +8,22 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
 
+import net.minecraft.server.Packet20NamedEntitySpawn;
+
+import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.WorldCreator;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.craftbukkit.entity.CraftPlayer;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
+import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -66,12 +71,7 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
         }
         return dir.delete();
     }
-
-    //TODO /join while gamestatus is preround adds you to participants and announces your join
-    //TODO /join while gamestatus is in countdown adds you to participants, announces your join, and instantly runs the setup (clear inventory, spawn, etc)
-    //TODO /join while gamestatus is ingame fails
-    //TODO /join while gamestatus is postgame fails
-
+    
     //TODO /leave while gamestatus is preround removes you from participants and announces you leaving
     //TODO /leave while gamestatus is in countdown removes you from partipants and moves you back to the lobby
     //TODO /leave while gamestatus is ingame removes you from partipants and moves you back to the lobby, and clears your inventory
@@ -109,6 +109,8 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
     private File mapConfigFile;
     public SpawnManager spm;
     boolean tubeMines;
+    String mapName;
+    String author;
 
     public void reloadCustomConfig() {
         if (mapConfigFile == null) {
@@ -137,6 +139,21 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
         tubeMines = this.getConfig().getBoolean("tubeMines");
     }
 
+    public void fixTele(final Player player1, final Player player2) {
+        if (player1.equals(player2))
+            return;
+        ((CraftPlayer) player1).getHandle().netServerHandler.sendPacket(new Packet20NamedEntitySpawn(((CraftPlayer) player2).getHandle()));
+        ((CraftPlayer) player2).getHandle().netServerHandler.sendPacket(new Packet20NamedEntitySpawn(((CraftPlayer) player1).getHandle()));
+        Bukkit.getScheduler().scheduleSyncDelayedTask(this, new Runnable() {
+            
+            @Override
+            public void run() {
+                ((CraftPlayer) player1).getHandle().netServerHandler.sendPacket(new Packet20NamedEntitySpawn(((CraftPlayer) player2).getHandle()));
+                ((CraftPlayer) player2).getHandle().netServerHandler.sendPacket(new Packet20NamedEntitySpawn(((CraftPlayer) player1).getHandle()));
+            }
+        }, 20);
+    }
+    
     public void loadMap(boolean firstLoad) {
         for (Player p : this.getServer().getOnlinePlayers()) {
             toLobby(p);
@@ -159,14 +176,22 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
         reloadCustomConfig();
         minPlayers = mapConfig.getInt("minPlayers");
         maxPlayers = mapConfig.getInt("maxPlayers");
+        mapName = mapConfig.getString("longName");
+        author = mapConfig.getString("author");
         spm = new SpawnManager(gameWorld, mapConfig.getStringList("spawns"), this);
         breakableBlocks = new ArrayList<Integer>(mapConfig.getIntegerList("breakableBlocks"));
 
         for (Player p : this.getServer().getOnlinePlayers()) {
             p.teleport(gameWorld.getSpawnLocation());
         }
-        //FIXME refreshChunk() to fix invisibility
+        for (Player p : this.getServer().getOnlinePlayers()) {
+            for (Player p2 : this.getServer().getOnlinePlayers()) {
+                fixTele(p, p2);
+            }
+        }
         status = GameStatus.PreRound;
+        participants.clear();
+        getServer().broadcastMessage(ChatColor.AQUA + "Welcome to " + ChatColor.RED + mapName + ChatColor.AQUA + " by " + ChatColor.RED + author);
     }
 
     public void toLobby(Player p) {
@@ -175,7 +200,6 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
 
     @Override
     public void onEnable() {
-        //TODO Load map configs
         this.getConfig().options().copyDefaults(true);
         this.saveConfig();
         loadMainConfig();
@@ -210,10 +234,13 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
         getServer().getScheduler().scheduleSyncDelayedTask(this, new Runnable() {
             @Override
             public void run() {
-                int number = totalTime - time;
-                getServer().broadcastMessage(ChatColor.AQUA + "" + number);
+                int number = totalTime - (totalTime - time);
+                if (number <= 5)
+                    getServer().broadcastMessage(ChatColor.RED + "" + ChatColor.BOLD + number);
+                else
+                    getServer().broadcastMessage(ChatColor.AQUA + "" + number);
             }
-        }, (totalTime - time) * 3);
+        }, (totalTime - time) * 20);
     }
 
     public void startCountdown() {
@@ -224,25 +251,17 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
             public void run() {
                 startGame();
             }
-        }, countdown * 3);
+        }, countdown * 20);
         getServer().broadcastMessage(ChatColor.AQUA + "The survival games begin in " + countdown + " seconds");
-        scheduleCountdownMessage(25, countdown);
-        scheduleCountdownMessage(20, countdown);
-        scheduleCountdownMessage(15, countdown);
-        scheduleCountdownMessage(10, countdown);
-        scheduleCountdownMessage(9, countdown);
-        scheduleCountdownMessage(8, countdown);
-        scheduleCountdownMessage(7, countdown);
-        scheduleCountdownMessage(6, countdown);
-        scheduleCountdownMessage(5, countdown);
-        scheduleCountdownMessage(4, countdown);
-        scheduleCountdownMessage(3, countdown);
-        scheduleCountdownMessage(2, countdown);
-        scheduleCountdownMessage(1, countdown);
+        getServer().broadcastMessage(ChatColor.AQUA + "Best of luck");
+        for (int x = 1; x < countdown; x++) {
+            if (x <= 10 || x % 10 == 0)
+                scheduleCountdownMessage(x, countdown);
+        }
     }
 
     public void startGame() {
-        getServer().broadcastMessage(ChatColor.AQUA + "BEGIN!");
+        getServer().broadcastMessage(ChatColor.RED + "" + ChatColor.BOLD + "BEGIN!");
         status = GameStatus.InGame;
     }
 
@@ -265,6 +284,7 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
                 }
             }, offset);
         }
+        deadPlayers.clear();
     }
 
     public void handleLoss(Player p, LossMethod m) {
@@ -286,19 +306,66 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
         p.damage(9001);
         p.sendMessage(ChatColor.RED + "You have been eliminated");
         p.getWorld().setStorm(weather);
+        participants.remove(n);
+        checkForWinner();
+    }
+    
+    public void checkForWinner() {
+        if (participants.size() == 1) {
+            String winner = participants.get(0);
+            Player p = getServer().getPlayer(winner);
+            SpawnManager.preparePlayer(p);
+            p.teleport(gameWorld.getSpawnLocation());
+            getServer().broadcastMessage(ChatColor.RED + winner + ChatColor.AQUA + " has won the survival games!");
+            mapConfigFile = new File(getDataFolder(), mapCycle.get(0) + ".yml");
+            reloadCustomConfig();
+            mapName = mapConfig.getString("longName");
+            author = mapConfig.getString("author");
+            getServer().broadcastMessage(ChatColor.AQUA + "The next map is " + ChatColor.RED + mapName + ChatColor.AQUA + " by " + ChatColor.RED + author);
+            getServer().broadcastMessage(ChatColor.AQUA + "The next map will load in 30 seconds");
+            status = GameStatus.PostRound;
+            getServer().getScheduler().scheduleSyncDelayedTask(this, new Runnable() {
+                @Override
+                public void run() {
+                    loadMap(false);
+                }
+            }, 600);
+        }
     }
 
     @EventHandler
     public void onDisconnect(PlayerQuitEvent event) {
-        if (status == GameStatus.InGame && participants.contains(event.getPlayer().getName()))
-            handleLoss(event.getPlayer(), LossMethod.Disconnect);
+        if (participants.contains(event.getPlayer().getName())) {
+            switch (status) {
+                case InGame:
+                case Countdown:
+                    handleLoss(event.getPlayer(), LossMethod.Disconnect);
+                    return;
+                case PreRound:
+                    getServer().broadcastMessage(ChatColor.RED + event.getPlayer().getName() + ChatColor.AQUA + " has left the survival games!");
+                    spm.removePlayer(event.getPlayer().getName());
+                    participants.remove(event.getPlayer().getName());
+                    return;
+            }
+        }
     }
 
     @EventHandler
     public void onDeath(PlayerDeathEvent event) {
-        if (status == GameStatus.InGame && participants.contains(event.getEntity().getName())) {
-            handleLoss(event.getEntity(), LossMethod.Killed);
+        if (status == GameStatus.InGame || status == GameStatus.Countdown)
             event.setDeathMessage("");
+        if (participants.contains(event.getEntity().getName())) {
+            switch (status) {
+                case InGame:
+                case Countdown:
+                    handleLoss(event.getEntity(), LossMethod.Killed);
+                    return;
+                case PreRound:
+                    getServer().broadcastMessage(ChatColor.RED + event.getEntity().getName() + ChatColor.AQUA + " has left the survival games!");
+                    spm.removePlayer(event.getEntity().getName());
+                    participants.remove(event.getEntity().getName());
+                    return;
+            }
         }
     }
 
@@ -328,8 +395,18 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
         if ((status == GameStatus.InGame || status == GameStatus.Countdown) && participants.contains(event.getPlayer().getName()) && !breakableBlocks.contains(event.getBlock().getTypeId()))
             event.setCancelled(true);
     }
+    
+    public void onJoin(PlayerJoinEvent event) {
+        event.getPlayer().teleport(gameWorld.getSpawnLocation());
+        switch (status) {
+            case PreRound:
+            case Countdown:
+            case InGame:
+            case PostRound:
+        }
+    }
 
-    /*
+    /*//This is a cheap trick for getting spawn point coords
     @EventHandler
     public void onRightClick(PlayerInteractEvent event) {
         Location l = event.getClickedBlock().getLocation();

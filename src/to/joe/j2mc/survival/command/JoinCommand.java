@@ -36,6 +36,10 @@ public class JoinCommand extends MasterCommand {
                 if (this.plugin.spm.addPlayer(player.getName())) {
                     this.plugin.getServer().broadcastMessage(ChatColor.RED + player.getName() + ChatColor.AQUA + " has entered the survival games!");
                     this.plugin.participants.add(player.getName());
+                    if (this.plugin.participants.size() == this.plugin.maxPlayers) {
+                        this.plugin.startCountdown();
+                        this.plugin.getServer().broadcastMessage(ChatColor.AQUA + "All slots have been filled");
+                    }
                 } else {
                     sender.sendMessage(ChatColor.RED + "There are no free slots in the next round");
                 }
