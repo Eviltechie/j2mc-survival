@@ -94,7 +94,6 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
     public ArrayList<String> participants = new ArrayList<String>();
     public ArrayList<String> deadPlayers = new ArrayList<String>();
     public ArrayList<String> mapCycle;
-    public ArrayList<String> rawSpawns;
     public ArrayList<Integer> breakableBlocks;
     int minPlayers = 2;
     public int maxPlayers = 2;
@@ -105,6 +104,7 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
     World gameWorld;
     private FileConfiguration mapConfig;
     private File mapConfigFile;
+    public SpawnManager spm;
     
     public void reloadCustomConfig() {
         if (mapConfigFile == null) {
@@ -154,10 +154,9 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
         reloadCustomConfig();
         minPlayers = mapConfig.getInt("minPlayers");
         maxPlayers = mapConfig.getInt("maxPlayers");
-        rawSpawns = new ArrayList<String>(mapConfig.getStringList("spawns"));
+        spm = new SpawnManager(gameWorld, mapConfig.getStringList("spawns"), this);
         breakableBlocks = new ArrayList<Integer>(mapConfig.getIntegerList("breakableBlocks"));
         
-        this.getServer().getLogger().severe(maxPlayers + "");
         
 
         for (Player p : this.getServer().getOnlinePlayers()) {

@@ -23,7 +23,18 @@ public class LeaveCommand extends MasterCommand {
             sender.sendMessage(ChatColor.RED + "Only players may use this command");
             return;
         }
-        this.plugin.handleLoss(player, LossMethod.Left);
+        switch (plugin.status) {
+            case InGame:
+            case Countdown:
+                this.plugin.handleLoss(player, LossMethod.Left);
+            case PreRound:
+                this.plugin.getServer().broadcastMessage(ChatColor.RED + player.getName() + ChatColor.AQUA + " has abandoned the survival games!");
+                this.plugin.spm.removePlayer(player.getName());
+                this.plugin.participants.remove(player.getName());
+                return;
+            case PostRound:
+                sender.sendMessage(ChatColor.RED + "You cannot leave the survival games after they end");
+        }
     }
 
 }
