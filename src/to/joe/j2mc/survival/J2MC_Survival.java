@@ -9,6 +9,7 @@ import java.io.OutputStream;
 import java.util.ArrayList;
 
 import org.bukkit.ChatColor;
+import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.WorldCreator;
 import org.bukkit.configuration.file.FileConfiguration;
@@ -107,10 +108,11 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
     private FileConfiguration mapConfig;
     private File mapConfigFile;
     public SpawnManager spm;
-    
+    boolean tubeMines;
+
     public void reloadCustomConfig() {
         if (mapConfigFile == null) {
-        mapConfigFile = new File(getDataFolder(), "customConfig.yml");
+            mapConfigFile = new File(getDataFolder(), "customConfig.yml");
         }
         mapConfig = YamlConfiguration.loadConfiguration(mapConfigFile);
         InputStream defConfigStream = this.getResource("customConfig.yml");
@@ -119,7 +121,7 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
             mapConfig.setDefaults(defConfig);
         }
     }
-    
+
     public FileConfiguration getCustomConfig() {
         if (mapConfig == null) {
             this.reloadCustomConfig();
@@ -132,6 +134,7 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
         maxWait = this.getConfig().getInt("maxWait");
         minReadyPercent = this.getConfig().getDouble("percentReady");
         mapCycle = new ArrayList<String>(this.getConfig().getStringList("mapcycle"));
+        tubeMines = this.getConfig().getBoolean("tubeMines");
     }
 
     public void loadMap(boolean firstLoad) {
@@ -151,15 +154,13 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
         }
 
         gameWorld = this.getServer().createWorld(new WorldCreator(newMap));
-        
+
         mapConfigFile = new File(getDataFolder(), newMap + ".yml");
         reloadCustomConfig();
         minPlayers = mapConfig.getInt("minPlayers");
         maxPlayers = mapConfig.getInt("maxPlayers");
         spm = new SpawnManager(gameWorld, mapConfig.getStringList("spawns"), this);
         breakableBlocks = new ArrayList<Integer>(mapConfig.getIntegerList("breakableBlocks"));
-        
-        
 
         for (Player p : this.getServer().getOnlinePlayers()) {
             p.teleport(gameWorld.getSpawnLocation());
@@ -204,17 +205,17 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
         this.getServer().unloadWorld(gameWorld, false);
         deleteFolder(new File(gameWorld.getName()));
     }
-    
+
     public void scheduleCountdownMessage(final int time, final int totalTime) {
         getServer().getScheduler().scheduleSyncDelayedTask(this, new Runnable() {
             @Override
             public void run() {
-                int number = totalTime-time;
+                int number = totalTime - time;
                 getServer().broadcastMessage(ChatColor.AQUA + "" + number);
             }
-        }, (totalTime-time)*3);
+        }, (totalTime - time) * 3);
     }
-    
+
     public void startCountdown() {
         status = GameStatus.Countdown;
         spm.spawnPlayers();
@@ -223,7 +224,7 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
             public void run() {
                 startGame();
             }
-        }, countdown*3);
+        }, countdown * 3);
         getServer().broadcastMessage(ChatColor.AQUA + "The survival games begin in " + countdown + " seconds");
         scheduleCountdownMessage(25, countdown);
         scheduleCountdownMessage(20, countdown);
@@ -239,7 +240,7 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
         scheduleCountdownMessage(2, countdown);
         scheduleCountdownMessage(1, countdown);
     }
-    
+
     public void startGame() {
         getServer().broadcastMessage(ChatColor.AQUA + "BEGIN!");
         status = GameStatus.InGame;
@@ -300,25 +301,39 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
             event.setDeathMessage("");
         }
     }
-    
+
+    //stolen from https://github.com/tomjw64/HungerBarGames/blob/master/HungerBarGames/src/me/tomjw64/HungerBarGames/Listeners/Countdown/CountdownMotionListener.java
     @EventHandler
     public void onPlayerMove(PlayerMoveEvent event) {
-        return;
-        if (status == GameStatus.Countdown && participants.contains(event.getPlayer().getName()))
-            event.setCancelled(true);
+        if (status == GameStatus.Countdown && participants.contains(event.getPlayer().getName())) {
+            Location from = event.getFrom();
+            Location to = event.getTo();
+            double x = Math.floor(from.getX());
+            double z = Math.floor(from.getZ());
+            if (Math.floor(to.getX()) != x || Math.floor(to.getZ()) != z) {
+                if (tubeMines) {
+                    event.getFrom().getWorld().createExplosion(to, 0, false);
+                    event.getPlayer().damage(20);
+                } else {
+                    x += .5;
+                    z += .5;
+                    event.getPlayer().teleport(new Location(from.getWorld(), x, from.getY(), z, to.getYaw(), to.getPitch()));
+                }
+            }
+        }
     }
-    
+
     @EventHandler
     public void onBlockBreak(BlockBreakEvent event) {
         if ((status == GameStatus.InGame || status == GameStatus.Countdown) && participants.contains(event.getPlayer().getName()) && !breakableBlocks.contains(event.getBlock().getTypeId()))
             event.setCancelled(true);
     }
-    
+
     /*
     @EventHandler
     public void onRightClick(PlayerInteractEvent event) {
         Location l = event.getClickedBlock().getLocation();
         getServer().getLogger().info("- " + l.getBlockX() + "," + l.getBlockY() + "," + l.getBlockZ());
     }
-    */
+     */
 }
