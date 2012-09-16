@@ -1,0 +1,14 @@
+minPlayers: 2
+maxPlayers: 10
+breakableBlocks:
+ - 18
+ - 39
+ - 40
+ - 103
+ - 106
+ - 115
+ - 127
+spawns:
+ - 10,20,30
+ - 10,20,35
+ - 10,20,40

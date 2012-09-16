@@ -11,6 +11,8 @@ import java.util.ArrayList;
 import org.bukkit.ChatColor;
 import org.bukkit.World;
 import org.bukkit.WorldCreator;
+import org.bukkit.configuration.file.FileConfiguration;
+import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -80,19 +82,6 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
     //TODO After a certain amount of time has passed, countdown starts
     //TODO /ready at any other time than preround fails
 
-    //TODO When countdown starts, all players are teleported to a spawn, their inventory is cleared, they are set to survival, no fly, healed, fed
-
-    //TODO Config needs spawns
-    //TODO Config needs minplayers, maxplayers
-    //TODO Config needs blocks that can be broken (or not)
-    //TODO Config needs lobby
-
-    //TODO Thing that prevents blocks from being broken
-
-    //TODO Voting for maps
-
-    //TODO Spectator mode, vanish players, filter chat
-
     public enum GameStatus {
         PreRound, Countdown, InGame, PostRound,
     }
@@ -105,6 +94,8 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
     public ArrayList<String> participants = new ArrayList<String>();
     public ArrayList<String> deadPlayers = new ArrayList<String>();
     public ArrayList<String> mapCycle;
+    public ArrayList<String> rawSpawns;
+    public ArrayList<Integer> breakableBlocks;
     int minPlayers = 2;
     public int maxPlayers = 2;
     int countdown;
@@ -112,6 +103,27 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
     double minReadyPercent;
     World lobbyWorld;
     World gameWorld;
+    private FileConfiguration mapConfig;
+    private File mapConfigFile;
+    
+    public void reloadCustomConfig() {
+        if (mapConfigFile == null) {
+        mapConfigFile = new File(getDataFolder(), "customConfig.yml");
+        }
+        mapConfig = YamlConfiguration.loadConfiguration(mapConfigFile);
+        InputStream defConfigStream = this.getResource("customConfig.yml");
+        if (defConfigStream != null) {
+            YamlConfiguration defConfig = YamlConfiguration.loadConfiguration(defConfigStream);
+            mapConfig.setDefaults(defConfig);
+        }
+    }
+    
+    public FileConfiguration getCustomConfig() {
+        if (mapConfig == null) {
+            this.reloadCustomConfig();
+        }
+        return mapConfig;
+    }
 
     public void loadMainConfig() {
         countdown = this.getConfig().getInt("countdown");
@@ -133,16 +145,25 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
         try {
             copyFolder(new File(newMap + "_bak"), new File(newMap));
         } catch (IOException e) {
-            // TODO Auto-generated catch block
             e.printStackTrace();
         }
 
         gameWorld = this.getServer().createWorld(new WorldCreator(newMap));
-        this.getServer().getLogger().info("Sucessfully loaded lobby");
+        
+        mapConfigFile = new File(getDataFolder(), newMap + ".yml");
+        reloadCustomConfig();
+        minPlayers = mapConfig.getInt("minPlayers");
+        maxPlayers = mapConfig.getInt("maxPlayers");
+        rawSpawns = new ArrayList<String>(mapConfig.getStringList("spawns"));
+        breakableBlocks = new ArrayList<Integer>(mapConfig.getIntegerList("breakableBlocks"));
+        
+        this.getServer().getLogger().severe(maxPlayers + "");
+        
 
         for (Player p : this.getServer().getOnlinePlayers()) {
             p.teleport(gameWorld.getSpawnLocation());
         }
+        //FIXME refreshChunk() to fix invisibility
         status = GameStatus.PreRound;
     }
 
@@ -218,7 +239,6 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
                 break;
         }
         deadPlayers.add(n);
-        //TODO Cannon
         final boolean weather = p.getWorld().isThundering();
         p.getWorld().strikeLightningEffect(p.getLocation());
         p.damage(9001);
