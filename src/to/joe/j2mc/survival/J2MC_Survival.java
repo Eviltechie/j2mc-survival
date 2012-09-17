@@ -29,6 +29,8 @@ import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.kitteh.vanish.staticaccess.VanishNoPacket;
+import org.kitteh.vanish.staticaccess.VanishNotLoadedException;
 
 import to.joe.j2mc.core.J2MC_Manager;
 import to.joe.j2mc.survival.command.JoinCommand;
@@ -76,11 +78,16 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
     }
 
     public enum GameStatus {
-        PreRound, Countdown, InGame, PostRound,
+        PreRound,
+        Countdown,
+        InGame,
+        PostRound,
     }
 
     public enum LossMethod {
-        Disconnect, Killed, Left,
+        Disconnect,
+        Killed,
+        Left,
     }
 
     //TODO don't show players eliminated when not in game
@@ -458,11 +465,22 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
             case PostRound:
         }
     }
-    
+
     @EventHandler
     public void onDrop(PlayerDropItemEvent event) {
         if ((status == GameStatus.Countdown || status == GameStatus.InGame) && participants.contains(event.getPlayer().getName()) && event.getItemDrop().getItemStack().getType().equals(Material.COMPASS))
             event.setCancelled(true);
+    }
+
+    public void setSpectate(Player player, boolean spec) {
+        try {
+            if (spec && !VanishNoPacket.isVanished(player.getName())) {
+                VanishNoPacket.toggleVanishSilent(player);
+            } else if (!spec && VanishNoPacket.isVanished(player.getName())) {
+                VanishNoPacket.toggleVanishSilent(player);
+            }
+        } catch (VanishNotLoadedException e) {
+        }
     }
 
     /*//This is a cheap trick for getting spawn point coords
