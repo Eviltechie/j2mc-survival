@@ -105,6 +105,7 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
     String mapName;
     String author;
     int autostartTask;
+    int compassUpdateTask;
 
     public void reloadCustomConfig() {
         if (mapConfigFile == null) {
@@ -281,7 +282,7 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
         getServer().broadcastMessage(ChatColor.RED + "" + ChatColor.BOLD + "BEGIN!");
         status = GameStatus.InGame;
 
-        getServer().getScheduler().scheduleSyncRepeatingTask(this, new Runnable() {
+        compassUpdateTask = getServer().getScheduler().scheduleSyncRepeatingTask(this, new Runnable() {
 
             @Override
             public void run() {
@@ -305,6 +306,8 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
     }
 
     private void announceDead() {
+        if (status != GameStatus.InGame)
+            return;
         if (deadPlayers.size() == 0) {
             this.getServer().broadcastMessage(ChatColor.AQUA + "In the previous day no players were eliminated");
             return;
@@ -370,6 +373,7 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
             getServer().broadcastMessage(ChatColor.AQUA + "The next map will load in 30 seconds");
             status = GameStatus.PostRound;
             deadPlayers.clear();
+            getServer().getScheduler().cancelTask(compassUpdateTask);
             getServer().getScheduler().scheduleSyncDelayedTask(this, new Runnable() {
                 @Override
                 public void run() {
