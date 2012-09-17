@@ -13,6 +13,7 @@ import net.minecraft.server.Packet20NamedEntitySpawn;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
+import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.WorldCreator;
 import org.bukkit.configuration.file.FileConfiguration;
@@ -23,6 +24,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
+import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
@@ -31,6 +33,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 import to.joe.j2mc.core.J2MC_Manager;
 import to.joe.j2mc.survival.command.JoinCommand;
 import to.joe.j2mc.survival.command.LeaveCommand;
+import to.joe.j2mc.survival.command.ReadyCommand;
 import to.joe.j2mc.survival.command.SurvCommand;
 
 public class J2MC_Survival extends JavaPlugin implements Listener {
@@ -71,19 +74,6 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
         }
         return dir.delete();
     }
-    
-    //TODO /leave while gamestatus is preround removes you from participants and announces you leaving
-    //TODO /leave while gamestatus is in countdown removes you from partipants and moves you back to the lobby
-    //TODO /leave while gamestatus is ingame removes you from partipants and moves you back to the lobby, and clears your inventory
-    //TODO /leave while gamestatus is postround fails
-
-    //TODO disconnecting at any time removes you from participants and related
-
-    //TODO /ready while gamestatus is in preround tallies your vote to start
-    //TODO When greater than x percentage of people say ready countdown starts
-    //TODO When all slots are full, countdown starts
-    //TODO After a certain amount of time has passed, countdown starts
-    //TODO /ready at any other time than preround fails
 
     public enum GameStatus {
         PreRound, Countdown, InGame, PostRound,
@@ -93,16 +83,19 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
         Disconnect, Killed, Left,
     }
 
+    //TODO don't show players eliminated when not in game
+
     public GameStatus status = GameStatus.PreRound;
     public ArrayList<String> participants = new ArrayList<String>();
     public ArrayList<String> deadPlayers = new ArrayList<String>();
+    public ArrayList<String> readyPlayers = new ArrayList<String>();
     public ArrayList<String> mapCycle;
     public ArrayList<Integer> breakableBlocks;
-    int minPlayers = 2;
+    public int minPlayers = 2;
     public int maxPlayers = 2;
     int countdown;
     int maxWait;
-    double minReadyPercent;
+    public double minReadyPercent;
     World lobbyWorld;
     World gameWorld;
     private FileConfiguration mapConfig;
@@ -111,6 +104,7 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
     boolean tubeMines;
     String mapName;
     String author;
+    int autostartTask;
 
     public void reloadCustomConfig() {
         if (mapConfigFile == null) {
@@ -145,7 +139,7 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
         ((CraftPlayer) player1).getHandle().netServerHandler.sendPacket(new Packet20NamedEntitySpawn(((CraftPlayer) player2).getHandle()));
         ((CraftPlayer) player2).getHandle().netServerHandler.sendPacket(new Packet20NamedEntitySpawn(((CraftPlayer) player1).getHandle()));
         Bukkit.getScheduler().scheduleSyncDelayedTask(this, new Runnable() {
-            
+
             @Override
             public void run() {
                 ((CraftPlayer) player1).getHandle().netServerHandler.sendPacket(new Packet20NamedEntitySpawn(((CraftPlayer) player2).getHandle()));
@@ -153,7 +147,7 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
             }
         }, 20);
     }
-    
+
     public void loadMap(boolean firstLoad) {
         for (Player p : this.getServer().getOnlinePlayers()) {
             toLobby(p);
@@ -191,7 +185,21 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
         }
         status = GameStatus.PreRound;
         participants.clear();
+        readyPlayers.clear();
+        deadPlayers.clear();
         getServer().broadcastMessage(ChatColor.AQUA + "Welcome to " + ChatColor.RED + mapName + ChatColor.AQUA + " by " + ChatColor.RED + author);
+
+        autostartTask = getServer().getScheduler().scheduleSyncDelayedTask(this, new Runnable() {
+
+            @Override
+            public void run() {
+                if (participants.size() >= minPlayers) {
+                    startCountdown();
+                } else {
+                    loadMap(false);
+                }
+            }
+        }, maxWait * 20);
     }
 
     public void toLobby(Player p) {
@@ -207,6 +215,7 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
         this.getServer().getPluginManager().registerEvents(this, this);
         this.getCommand("join").setExecutor(new JoinCommand(this));
         this.getCommand("leave").setExecutor(new LeaveCommand(this));
+        this.getCommand("ready").setExecutor(new ReadyCommand(this));
         this.getCommand("surv").setExecutor(new SurvCommand(this));
 
         //Run announceDead() once per day
@@ -235,17 +244,25 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
             @Override
             public void run() {
                 int number = totalTime - (totalTime - time);
-                if (number <= 5)
-                    getServer().broadcastMessage(ChatColor.RED + "" + ChatColor.BOLD + number);
+                if (number == 1)
+                    getServer().broadcastMessage(ChatColor.RED + "" + ChatColor.BOLD + number + " second");
+                else if (number <= 5)
+                    getServer().broadcastMessage(ChatColor.RED + "" + ChatColor.BOLD + number + " seconds");
                 else
-                    getServer().broadcastMessage(ChatColor.AQUA + "" + number);
+                    getServer().broadcastMessage(ChatColor.AQUA + "" + number + " seconds");
             }
         }, (totalTime - time) * 20);
     }
 
     public void startCountdown() {
+        getServer().getScheduler().cancelTask(autostartTask);
         status = GameStatus.Countdown;
         spm.spawnPlayers();
+        for (Player p : this.getServer().getOnlinePlayers()) {
+            for (Player p2 : this.getServer().getOnlinePlayers()) {
+                fixTele(p, p2);
+            }
+        }
         getServer().getScheduler().scheduleSyncDelayedTask(this, new Runnable() {
             @Override
             public void run() {
@@ -263,6 +280,28 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
     public void startGame() {
         getServer().broadcastMessage(ChatColor.RED + "" + ChatColor.BOLD + "BEGIN!");
         status = GameStatus.InGame;
+
+        getServer().getScheduler().scheduleSyncRepeatingTask(this, new Runnable() {
+
+            @Override
+            public void run() {
+                for (String s1 : participants) {
+                    Player p1 = getServer().getPlayer(s1);
+                    ArrayList<String> participantsMinusPlayer = new ArrayList<String>(participants);
+                    participantsMinusPlayer.remove(s1);
+                    Player closestPlayer = getServer().getPlayer(participantsMinusPlayer.get(0));
+                    for (String s2 : participants) {
+                        Player p2 = getServer().getPlayer(s2);
+                        if (p1.equals(p2))
+                            continue;
+                        if (p1.getLocation().distanceSquared(p2.getLocation()) < p1.getLocation().distanceSquared(closestPlayer.getLocation())) {
+                            closestPlayer = p2;
+                        }
+                    }
+                    p1.setCompassTarget(closestPlayer.getLocation());
+                }
+            }
+        }, 0, 100);
     }
 
     private void announceDead() {
@@ -284,6 +323,13 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
                 }
             }, offset);
         }
+        offset += 30;
+        J2MC_Manager.getCore().getServer().getScheduler().scheduleSyncDelayedTask(this, new Runnable() {
+            @Override
+            public void run() {
+                getServer().broadcastMessage(ChatColor.AQUA + "" + participants.size() + " players remain");
+            }
+        }, offset);
         deadPlayers.clear();
     }
 
@@ -303,13 +349,12 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
         deadPlayers.add(n);
         final boolean weather = p.getWorld().isThundering();
         p.getWorld().strikeLightningEffect(p.getLocation());
-        p.damage(9001);
         p.sendMessage(ChatColor.RED + "You have been eliminated");
         p.getWorld().setStorm(weather);
         participants.remove(n);
         checkForWinner();
     }
-    
+
     public void checkForWinner() {
         if (participants.size() == 1) {
             String winner = participants.get(0);
@@ -324,6 +369,7 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
             getServer().broadcastMessage(ChatColor.AQUA + "The next map is " + ChatColor.RED + mapName + ChatColor.AQUA + " by " + ChatColor.RED + author);
             getServer().broadcastMessage(ChatColor.AQUA + "The next map will load in 30 seconds");
             status = GameStatus.PostRound;
+            deadPlayers.clear();
             getServer().getScheduler().scheduleSyncDelayedTask(this, new Runnable() {
                 @Override
                 public void run() {
@@ -345,6 +391,7 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
                     getServer().broadcastMessage(ChatColor.RED + event.getPlayer().getName() + ChatColor.AQUA + " has left the survival games!");
                     spm.removePlayer(event.getPlayer().getName());
                     participants.remove(event.getPlayer().getName());
+                    readyPlayers.remove(event.getPlayer().getName());
                     return;
             }
         }
@@ -363,6 +410,7 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
                 case PreRound:
                     getServer().broadcastMessage(ChatColor.RED + event.getEntity().getName() + ChatColor.AQUA + " has left the survival games!");
                     spm.removePlayer(event.getEntity().getName());
+                    participants.remove(event.getEntity().getName());
                     participants.remove(event.getEntity().getName());
                     return;
             }
@@ -395,7 +443,8 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
         if ((status == GameStatus.InGame || status == GameStatus.Countdown) && participants.contains(event.getPlayer().getName()) && !breakableBlocks.contains(event.getBlock().getTypeId()))
             event.setCancelled(true);
     }
-    
+
+    @EventHandler
     public void onJoin(PlayerJoinEvent event) {
         event.getPlayer().teleport(gameWorld.getSpawnLocation());
         switch (status) {
@@ -404,6 +453,12 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
             case InGame:
             case PostRound:
         }
+    }
+    
+    @EventHandler
+    public void onDrop(PlayerDropItemEvent event) {
+        if ((status == GameStatus.Countdown || status == GameStatus.InGame) && participants.contains(event.getPlayer().getName()) && event.getItemDrop().getItemStack().getType().equals(Material.COMPASS))
+            event.setCancelled(true);
     }
 
     /*//This is a cheap trick for getting spawn point coords

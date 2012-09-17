@@ -31,6 +31,7 @@ public class LeaveCommand extends MasterCommand {
                 this.plugin.getServer().broadcastMessage(ChatColor.RED + player.getName() + ChatColor.AQUA + " has abandoned the survival games!");
                 this.plugin.spm.removePlayer(player.getName());
                 this.plugin.participants.remove(player.getName());
+                this.plugin.readyPlayers.remove(player.getName());
                 return;
             case PostRound:
                 sender.sendMessage(ChatColor.RED + "You cannot leave the survival games after they end");
