@@ -42,7 +42,7 @@ public class ReadyCommand extends MasterCommand {
             this.plugin.getServer().broadcastMessage(ChatColor.RED + player.getName() + ChatColor.AQUA + " is no longer ready to start");
         } else {
             this.plugin.readyPlayers.add(player.getName());
-            if ((this.plugin.participants.size() / this.plugin.readyPlayers.size() > this.plugin.minReadyPercent) && this.plugin.participants.size() >= this.plugin.minPlayers) {
+            if (((double)this.plugin.readyPlayers.size() / this.plugin.participants.size() > this.plugin.minReadyPercent) && this.plugin.participants.size() >= this.plugin.minPlayers) {
                 this.plugin.startCountdown();
             } else {
                 this.plugin.getServer().broadcastMessage(ChatColor.RED + player.getName() + ChatColor.AQUA + " is ready to start");

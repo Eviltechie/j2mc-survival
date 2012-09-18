@@ -25,6 +25,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.PlayerDropItemEvent;
+import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
@@ -33,10 +34,7 @@ import org.kitteh.vanish.staticaccess.VanishNoPacket;
 import org.kitteh.vanish.staticaccess.VanishNotLoadedException;
 
 import to.joe.j2mc.core.J2MC_Manager;
-import to.joe.j2mc.survival.command.JoinCommand;
-import to.joe.j2mc.survival.command.LeaveCommand;
-import to.joe.j2mc.survival.command.ReadyCommand;
-import to.joe.j2mc.survival.command.SurvCommand;
+import to.joe.j2mc.survival.command.*;
 
 public class J2MC_Survival extends JavaPlugin implements Listener {
 
@@ -103,8 +101,8 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
     int countdown;
     int maxWait;
     public double minReadyPercent;
-    World lobbyWorld;
-    World gameWorld;
+    public World lobbyWorld;
+    public World gameWorld;
     private FileConfiguration mapConfig;
     private File mapConfigFile;
     public SpawnManager spm;
@@ -224,7 +222,8 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
         this.getCommand("join").setExecutor(new JoinCommand(this));
         this.getCommand("leave").setExecutor(new LeaveCommand(this));
         this.getCommand("ready").setExecutor(new ReadyCommand(this));
-        this.getCommand("surv").setExecutor(new SurvCommand(this));
+        
+        J2MC_Manager.getPermissions().addFlagPermissionRelation("j2mc.chat.spectator", 'P', true);
 
         //Run announceDead() once per day
         J2MC_Manager.getCore().getServer().getScheduler().scheduleSyncRepeatingTask(this, new Runnable() {
@@ -345,6 +344,7 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
 
     public void handleLoss(Player p, LossMethod m) {
         String n = p.getName();
+        setSpectate(p, true);
         switch (m) {
             case Disconnect:
                 J2MC_Manager.getCore().adminAndLog(ChatColor.RED + n + " has disconnected");
@@ -369,7 +369,7 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
         if (participants.size() == 1) {
             String winner = participants.get(0);
             Player p = getServer().getPlayer(winner);
-            SpawnManager.preparePlayer(p);
+            spm.preparePlayer(p);
             p.teleport(gameWorld.getSpawnLocation());
             getServer().broadcastMessage(ChatColor.RED + winner + ChatColor.AQUA + " has won the survival games!");
             mapConfigFile = new File(getDataFolder(), mapCycle.get(0) + ".yml");
@@ -457,12 +457,19 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
 
     @EventHandler
     public void onJoin(PlayerJoinEvent event) {
-        event.getPlayer().teleport(gameWorld.getSpawnLocation());
+        Player p = event.getPlayer();
+        setSpectate(p, true);
         switch (status) {
-            case PreRound:
             case Countdown:
+            case PreRound:
+                p.sendMessage(ChatColor.AQUA + "Welcome to " + ChatColor.RED + mapName + ChatColor.AQUA + " by " + ChatColor.RED + author);
+                p.sendMessage(ChatColor.AQUA + "The round has not started yet. Type" + ChatColor.RED + " /join" + ChatColor.AQUA + " to join");
+                break;
             case InGame:
+                p.sendMessage(ChatColor.AQUA + "Welcome to " + ChatColor.RED + mapName + ChatColor.AQUA + " by " + ChatColor.RED + author);
+                p.sendMessage(ChatColor.AQUA + "A round is currently in progress");
             case PostRound:
+                p.sendMessage(ChatColor.AQUA + "The next map will be loading shortly.");
         }
     }
 
@@ -476,18 +483,24 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
         try {
             if (spec && !VanishNoPacket.isVanished(player.getName())) {
                 VanishNoPacket.toggleVanishSilent(player);
+                J2MC_Manager.getPermissions().addFlag(player, 'P');
+                player.setAllowFlight(true);
             } else if (!spec && VanishNoPacket.isVanished(player.getName())) {
                 VanishNoPacket.toggleVanishSilent(player);
+                J2MC_Manager.getPermissions().delFlag(player, 'P');
+                player.setAllowFlight(false);
             }
         } catch (VanishNotLoadedException e) {
+            getServer().getLogger().severe("Vanish no packet missing!");
         }
     }
 
-    /*//This is a cheap trick for getting spawn point coords
+    //This is a cheap trick for getting spawn point coords
     @EventHandler
     public void onRightClick(PlayerInteractEvent event) {
-        Location l = event.getClickedBlock().getLocation();
-        getServer().getLogger().info("- " + l.getBlockX() + "," + l.getBlockY() + "," + l.getBlockZ());
+        if (event.hasBlock() && event.getPlayer().isOp()) {
+            Location l = event.getClickedBlock().getLocation();
+            getServer().getLogger().info("- " + l.getBlockX() + "," + l.getBlockY() + "," + l.getBlockZ());
+        }
     }
-     */
 }

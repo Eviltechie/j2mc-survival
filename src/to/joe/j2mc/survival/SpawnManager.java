@@ -10,6 +10,7 @@ import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.PlayerInventory;
 
 public class SpawnManager {
 
@@ -73,15 +74,19 @@ public class SpawnManager {
         }
     }
     
-    public static void preparePlayer(Player p) {
+    public void preparePlayer(Player p) {
+        this.plugin.setSpectate(p, false);
         p.setGameMode(GameMode.SURVIVAL);
         p.setAllowFlight(false);
-        p.getInventory().clear();
-        p.getInventory().setHelmet(null);
-        p.getInventory().setChestplate(null);
-        p.getInventory().setLeggings(null);
-        p.getInventory().setBoots(null);
-        p.getInventory().addItem(new ItemStack(Material.COMPASS));
+        p.setFlying(false);
+        PlayerInventory pInv = p.getInventory();
+        pInv.clear();
+        pInv.clear();
+        pInv.setHelmet(null);
+        pInv.setChestplate(null);
+        pInv.setLeggings(null);
+        pInv.setBoots(null);
+        pInv.addItem(new ItemStack(Material.COMPASS));
         p.setHealth(p.getMaxHealth());
         p.setFoodLevel(20);
     }

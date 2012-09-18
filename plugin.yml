@@ -20,9 +20,16 @@ commands:
     usage: /ready
     permission: j2mc.survival.ready
     permission-message: You may not indicate ready
-  surv:
-    description: Admin testing stuff
-    usage: /surv
+  lobby:
+    description: Teleport yourself to the lobby
+    usage: /lobby
+    permission: j2mc.survival.lobby
+    permission-message: You may not teleport yourself to the lobby
+  arena:
+    description: Teleport yourself to the arena
+    usage: /arena
+    permission: j2mc.survival.arena
+    permission-message: You may not teleport yourself to the arena
 permissions:
   j2mc.survival.join:
     description: Join the survival game
@@ -32,4 +39,10 @@ permissions:
     default: true
   j2mc.survival.ready:
     description: Toggle readiness to start
+    default: true
+  j2mc.survival.lobby:
+    description: Teleport to lobby
+    default: true
+  j2mc.survival.arena:
+    description: Teleport to arena
     default: true
