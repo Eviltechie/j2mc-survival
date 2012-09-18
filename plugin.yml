@@ -1,6 +1,7 @@
 name: Survival
 main: to.joe.j2mc.survival.J2MC_Survival
 version: 0.1
+depend: [VanishNoPacket]
 website: http://forums.joe.to
 author: Eviltechie
 description: Hunger games

@@ -7,6 +7,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
 import net.minecraft.server.Packet20NamedEntitySpawn;
 
@@ -155,7 +157,9 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
     }
 
     public void loadMap(boolean firstLoad) {
-        for (Player p : this.getServer().getOnlinePlayers()) {
+        List<Player> toTeleport = Arrays.asList(this.getServer().getOnlinePlayers());
+        for (Player p : toTeleport) {
+            if (p.getWorld().equals(gameWorld))
             toLobby(p);
         }
         String newMap = mapCycle.get(0);
@@ -182,9 +186,6 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
         breakableBlocks = new ArrayList<Integer>(mapConfig.getIntegerList("breakableBlocks"));
 
         for (Player p : this.getServer().getOnlinePlayers()) {
-            p.teleport(gameWorld.getSpawnLocation());
-        }
-        for (Player p : this.getServer().getOnlinePlayers()) {
             for (Player p2 : this.getServer().getOnlinePlayers()) {
                 fixTele(p, p2);
             }
@@ -193,7 +194,7 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
         participants.clear();
         readyPlayers.clear();
         deadPlayers.clear();
-        getServer().broadcastMessage(ChatColor.AQUA + "Welcome to " + ChatColor.RED + mapName + ChatColor.AQUA + " by " + ChatColor.RED + author);
+        getServer().broadcastMessage(ChatColor.AQUA + "Now playing: " + ChatColor.RED + mapName + ChatColor.AQUA + " by " + ChatColor.RED + author);
 
         autostartTask = getServer().getScheduler().scheduleSyncDelayedTask(this, new Runnable() {
 
@@ -222,14 +223,18 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
         this.getCommand("join").setExecutor(new JoinCommand(this));
         this.getCommand("leave").setExecutor(new LeaveCommand(this));
         this.getCommand("ready").setExecutor(new ReadyCommand(this));
-        
+        this.getCommand("lobby").setExecutor(new LobbyCommand(this));
+        this.getCommand("arena").setExecutor(new ArenaCommand(this));
+        //XXX
         J2MC_Manager.getPermissions().addFlagPermissionRelation("j2mc.chat.spectator", 'P', true);
+        J2MC_Manager.getPermissions().addFlagPermissionRelation("vanish.see", 'P', true);
+        J2MC_Manager.getPermissions().addFlagPermissionRelation("worldedit.navigation.thru", 'P', true);
 
         //Run announceDead() once per day
         J2MC_Manager.getCore().getServer().getScheduler().scheduleSyncRepeatingTask(this, new Runnable() {
             @Override
             public void run() {
-                if (gameWorld.getTime() >= 13000 && gameWorld.getTime() < 14000)
+                if (gameWorld.getTime() >= 12000 && gameWorld.getTime() < 13000)
                     announceDead();
             }
         }, 1000, 1000);
@@ -462,11 +467,11 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
         switch (status) {
             case Countdown:
             case PreRound:
-                p.sendMessage(ChatColor.AQUA + "Welcome to " + ChatColor.RED + mapName + ChatColor.AQUA + " by " + ChatColor.RED + author);
+                p.sendMessage(ChatColor.AQUA + "Now playing: " + ChatColor.RED + mapName + ChatColor.AQUA + " by " + ChatColor.RED + author);
                 p.sendMessage(ChatColor.AQUA + "The round has not started yet. Type" + ChatColor.RED + " /join" + ChatColor.AQUA + " to join");
                 break;
             case InGame:
-                p.sendMessage(ChatColor.AQUA + "Welcome to " + ChatColor.RED + mapName + ChatColor.AQUA + " by " + ChatColor.RED + author);
+                p.sendMessage(ChatColor.AQUA + "Now playing: " + ChatColor.RED + mapName + ChatColor.AQUA + " by " + ChatColor.RED + author);
                 p.sendMessage(ChatColor.AQUA + "A round is currently in progress");
             case PostRound:
                 p.sendMessage(ChatColor.AQUA + "The next map will be loading shortly.");
@@ -482,12 +487,12 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
     public void setSpectate(Player player, boolean spec) {
         try {
             if (spec && !VanishNoPacket.isVanished(player.getName())) {
-                VanishNoPacket.toggleVanishSilent(player);
                 J2MC_Manager.getPermissions().addFlag(player, 'P');
+                VanishNoPacket.toggleVanishSilent(player);
                 player.setAllowFlight(true);
             } else if (!spec && VanishNoPacket.isVanished(player.getName())) {
-                VanishNoPacket.toggleVanishSilent(player);
                 J2MC_Manager.getPermissions().delFlag(player, 'P');
+                VanishNoPacket.toggleVanishSilent(player);
                 player.setAllowFlight(false);
             }
         } catch (VanishNotLoadedException e) {
@@ -498,6 +503,12 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
     //This is a cheap trick for getting spawn point coords
     @EventHandler
     public void onRightClick(PlayerInteractEvent event) {
+        if (event.getPlayer().hasPermission("j2mc.chat.spectate"))
+            event.getPlayer().sendMessage("You have spectate");
+        if (event.getPlayer().hasPermission("vanish.see"))
+            event.getPlayer().sendMessage("You have vanishsee");
+        if (event.getPlayer().hasPermission("worldedit.navigation.thru"))
+            event.getPlayer().sendMessage("You have thru");
         if (event.hasBlock() && event.getPlayer().isOp()) {
             Location l = event.getClickedBlock().getLocation();
             getServer().getLogger().info("- " + l.getBlockX() + "," + l.getBlockY() + "," + l.getBlockZ());
