@@ -503,7 +503,7 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
     //This is a cheap trick for getting spawn point coords
     @EventHandler
     public void onRightClick(PlayerInteractEvent event) {
-        if (event.getPlayer().hasPermission("j2mc.chat.spectate"))
+        if (event.getPlayer().hasPermission("j2mc.chat.spectator"))
             event.getPlayer().sendMessage("You have spectate");
         if (event.getPlayer().hasPermission("vanish.see"))
             event.getPlayer().sendMessage("You have vanishsee");
