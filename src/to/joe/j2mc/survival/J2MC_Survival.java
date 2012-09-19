@@ -90,8 +90,6 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
         Left,
     }
 
-    //TODO don't show players eliminated when not in game
-
     public GameStatus status = GameStatus.PreRound;
     public ArrayList<String> participants = new ArrayList<String>();
     public ArrayList<String> deadPlayers = new ArrayList<String>();
@@ -194,7 +192,7 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
         participants.clear();
         readyPlayers.clear();
         deadPlayers.clear();
-        getServer().broadcastMessage(ChatColor.AQUA + "Now playing: " + ChatColor.RED + mapName + ChatColor.AQUA + " by " + ChatColor.RED + author);
+        getServer().broadcastMessage(ChatColor.AQUA + "Now playing on: " + ChatColor.RED + mapName + ChatColor.AQUA + " by " + ChatColor.RED + author);
 
         autostartTask = getServer().getScheduler().scheduleSyncDelayedTask(this, new Runnable() {
 
@@ -211,6 +209,7 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
 
     public void toLobby(Player p) {
         p.teleport(lobbyWorld.getSpawnLocation());
+        p.setAllowFlight(true);
     }
 
     @Override
@@ -229,6 +228,12 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
         J2MC_Manager.getPermissions().addFlagPermissionRelation("j2mc.chat.spectator", 'P', true);
         J2MC_Manager.getPermissions().addFlagPermissionRelation("vanish.see", 'P', true);
         J2MC_Manager.getPermissions().addFlagPermissionRelation("worldedit.navigation.thru", 'P', true);
+        J2MC_Manager.getPermissions().addFlagPermissionRelation("vanish.nopickup", 'P', true);
+        J2MC_Manager.getPermissions().addFlagPermissionRelation("vanish.nofollow", 'P', true);
+        J2MC_Manager.getPermissions().addFlagPermissionRelation("vanish.notrample", 'P', true);
+        J2MC_Manager.getPermissions().addFlagPermissionRelation("vanish.nointeract", 'P', true);
+        J2MC_Manager.getPermissions().addFlagPermissionRelation("vanish.silentchests", 'P', true);
+        J2MC_Manager.getPermissions().addFlagPermissionRelation("vanish.preventdamage", 'P', true);
 
         //Run announceDead() once per day
         J2MC_Manager.getCore().getServer().getScheduler().scheduleSyncRepeatingTask(this, new Runnable() {
@@ -352,13 +357,13 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
         setSpectate(p, true);
         switch (m) {
             case Disconnect:
-                J2MC_Manager.getCore().adminAndLog(ChatColor.RED + n + " has disconnected");
+                getServer().broadcast(ChatColor.RED + n + ChatColor.AQUA + " has disconnected", "j2mc.chat.spectator");
                 break;
             case Killed:
-                J2MC_Manager.getCore().adminAndLog(ChatColor.RED + n + " has been killed");
+                getServer().broadcast(ChatColor.RED + n  + ChatColor.AQUA + " has been killed", "j2mc.chat.spectator");
                 break;
             case Left:
-                J2MC_Manager.getCore().adminAndLog(ChatColor.RED + n + " has left the game");
+                getServer().broadcast(ChatColor.RED + n + ChatColor.AQUA + " has left the game", "j2mc.chat.spectator");
                 break;
         }
         deadPlayers.add(n);
@@ -375,6 +380,7 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
             String winner = participants.get(0);
             Player p = getServer().getPlayer(winner);
             spm.preparePlayer(p);
+            setSpectate(p, true);
             p.teleport(gameWorld.getSpawnLocation());
             getServer().broadcastMessage(ChatColor.RED + winner + ChatColor.AQUA + " has won the survival games!");
             mapConfigFile = new File(getDataFolder(), mapCycle.get(0) + ".yml");
@@ -423,12 +429,6 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
                 case Countdown:
                     handleLoss(event.getEntity(), LossMethod.Killed);
                     return;
-                case PreRound:
-                    getServer().broadcastMessage(ChatColor.RED + event.getEntity().getName() + ChatColor.AQUA + " has left the survival games!");
-                    spm.removePlayer(event.getEntity().getName());
-                    participants.remove(event.getEntity().getName());
-                    participants.remove(event.getEntity().getName());
-                    return;
             }
         }
     }
@@ -463,15 +463,17 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
     @EventHandler
     public void onJoin(PlayerJoinEvent event) {
         Player p = event.getPlayer();
+        if (!p.getWorld().equals(lobbyWorld) || !p.getWorld().equals(gameWorld))
+            toLobby(p);
         setSpectate(p, true);
         switch (status) {
             case Countdown:
             case PreRound:
-                p.sendMessage(ChatColor.AQUA + "Now playing: " + ChatColor.RED + mapName + ChatColor.AQUA + " by " + ChatColor.RED + author);
+                p.sendMessage(ChatColor.AQUA + "Now playing on: " + ChatColor.RED + mapName + ChatColor.AQUA + " by " + ChatColor.RED + author);
                 p.sendMessage(ChatColor.AQUA + "The round has not started yet. Type" + ChatColor.RED + " /join" + ChatColor.AQUA + " to join");
                 break;
             case InGame:
-                p.sendMessage(ChatColor.AQUA + "Now playing: " + ChatColor.RED + mapName + ChatColor.AQUA + " by " + ChatColor.RED + author);
+                p.sendMessage(ChatColor.AQUA + "Now playing on: " + ChatColor.RED + mapName + ChatColor.AQUA + " by " + ChatColor.RED + author);
                 p.sendMessage(ChatColor.AQUA + "A round is currently in progress");
             case PostRound:
                 p.sendMessage(ChatColor.AQUA + "The next map will be loading shortly.");
@@ -503,12 +505,6 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
     //This is a cheap trick for getting spawn point coords
     @EventHandler
     public void onRightClick(PlayerInteractEvent event) {
-        if (event.getPlayer().hasPermission("j2mc.chat.spectator"))
-            event.getPlayer().sendMessage("You have spectate");
-        if (event.getPlayer().hasPermission("vanish.see"))
-            event.getPlayer().sendMessage("You have vanishsee");
-        if (event.getPlayer().hasPermission("worldedit.navigation.thru"))
-            event.getPlayer().sendMessage("You have thru");
         if (event.hasBlock() && event.getPlayer().isOp()) {
             Location l = event.getClickedBlock().getLocation();
             getServer().getLogger().info("- " + l.getBlockX() + "," + l.getBlockY() + "," + l.getBlockZ());

@@ -25,8 +25,9 @@ public class LobbyCommand extends MasterCommand {
         }
         if (this.plugin.participants.contains(player.getName()) && (this.plugin.status == GameStatus.InGame || this.plugin.status == GameStatus.Countdown)) {
             sender.sendMessage(ChatColor.RED + "You cannot go to the lobby while in game. Type" + ChatColor.AQUA + " /leave" + ChatColor.RED + " to leave this game");
+            return;
         }
-        player.teleport(this.plugin.lobbyWorld.getSpawnLocation());
+        this.plugin.toLobby(player);
         sender.sendMessage(ChatColor.AQUA + "Welcome to the lobby");
     }
 
