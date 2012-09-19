@@ -12,12 +12,7 @@ import java.util.List;
 
 import net.minecraft.server.Packet20NamedEntitySpawn;
 
-import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
-import org.bukkit.Location;
-import org.bukkit.Material;
-import org.bukkit.World;
-import org.bukkit.WorldCreator;
+import org.bukkit.*;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.craftbukkit.entity.CraftPlayer;
@@ -158,7 +153,7 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
         List<Player> toTeleport = Arrays.asList(this.getServer().getOnlinePlayers());
         for (Player p : toTeleport) {
             if (p.getWorld().equals(gameWorld))
-            toLobby(p);
+                toLobby(p);
         }
         String newMap = mapCycle.get(0);
         mapCycle.add(mapCycle.remove(0));
@@ -360,7 +355,7 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
                 getServer().broadcast(ChatColor.RED + n + ChatColor.AQUA + " has disconnected", "j2mc.chat.spectator");
                 break;
             case Killed:
-                getServer().broadcast(ChatColor.RED + n  + ChatColor.AQUA + " has been killed", "j2mc.chat.spectator");
+                getServer().broadcast(ChatColor.RED + n + ChatColor.AQUA + " has been killed", "j2mc.chat.spectator");
                 break;
             case Left:
                 getServer().broadcast(ChatColor.RED + n + ChatColor.AQUA + " has left the game", "j2mc.chat.spectator");
@@ -462,22 +457,28 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
 
     @EventHandler
     public void onJoin(PlayerJoinEvent event) {
-        Player p = event.getPlayer();
-        if (!p.getWorld().equals(lobbyWorld) || !p.getWorld().equals(gameWorld))
-            toLobby(p);
-        setSpectate(p, true);
-        switch (status) {
-            case Countdown:
-            case PreRound:
-                p.sendMessage(ChatColor.AQUA + "Now playing on: " + ChatColor.RED + mapName + ChatColor.AQUA + " by " + ChatColor.RED + author);
-                p.sendMessage(ChatColor.AQUA + "The round has not started yet. Type" + ChatColor.RED + " /join" + ChatColor.AQUA + " to join");
-                break;
-            case InGame:
-                p.sendMessage(ChatColor.AQUA + "Now playing on: " + ChatColor.RED + mapName + ChatColor.AQUA + " by " + ChatColor.RED + author);
-                p.sendMessage(ChatColor.AQUA + "A round is currently in progress");
-            case PostRound:
-                p.sendMessage(ChatColor.AQUA + "The next map will be loading shortly.");
-        }
+        final Player player = event.getPlayer();
+        this.getServer().getScheduler().scheduleSyncDelayedTask(this, new Runnable() {
+            @Override
+            public void run() {
+                if (!player.getWorld().equals(lobbyWorld) || !player.getWorld().equals(gameWorld)) {
+                    toLobby(player);
+                    setSpectate(player, true);
+                    switch (status) {
+                        case Countdown:
+                        case PreRound:
+                            player.sendMessage(ChatColor.AQUA + "Now playing on: " + ChatColor.RED + mapName + ChatColor.AQUA + " by " + ChatColor.RED + author);
+                            player.sendMessage(ChatColor.AQUA + "The round has not started yet. Type" + ChatColor.RED + " /join" + ChatColor.AQUA + " to join");
+                            break;
+                        case InGame:
+                            player.sendMessage(ChatColor.AQUA + "Now playing on: " + ChatColor.RED + mapName + ChatColor.AQUA + " by " + ChatColor.RED + author);
+                            player.sendMessage(ChatColor.AQUA + "A round is currently in progress");
+                        case PostRound:
+                            player.sendMessage(ChatColor.AQUA + "The next map will be loading shortly.");
+                    }
+                }
+            }
+        }, 1);
     }
 
     @EventHandler
@@ -489,10 +490,12 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
     public void setSpectate(Player player, boolean spec) {
         try {
             if (spec && !VanishNoPacket.isVanished(player.getName())) {
+                player.setGameMode(GameMode.ADVENTURE);
                 J2MC_Manager.getPermissions().addFlag(player, 'P');
                 VanishNoPacket.toggleVanishSilent(player);
                 player.setAllowFlight(true);
             } else if (!spec && VanishNoPacket.isVanished(player.getName())) {
+                player.setGameMode(GameMode.SURVIVAL);
                 J2MC_Manager.getPermissions().delFlag(player, 'P');
                 VanishNoPacket.toggleVanishSilent(player);
                 player.setAllowFlight(false);
