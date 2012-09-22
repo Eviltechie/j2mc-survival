@@ -1,6 +1,7 @@
 package to.joe.j2mc.survival;
 
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 
@@ -11,6 +12,7 @@ import org.bukkit.World;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
+import org.bukkit.potion.PotionEffect;
 
 public class SpawnManager {
 
@@ -81,7 +83,6 @@ public class SpawnManager {
         p.setFlying(false);
         PlayerInventory pInv = p.getInventory();
         pInv.clear();
-        pInv.clear();
         pInv.setHelmet(null);
         pInv.setChestplate(null);
         pInv.setLeggings(null);
@@ -89,5 +90,9 @@ public class SpawnManager {
         pInv.addItem(new ItemStack(Material.COMPASS));
         p.setHealth(p.getMaxHealth());
         p.setFoodLevel(20);
+        Collection <PotionEffect> effects = p.getActivePotionEffects();
+        for (PotionEffect e : effects) {
+            p.removePotionEffect(e.getType());
+        }
     }
 }

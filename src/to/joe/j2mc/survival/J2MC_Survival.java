@@ -12,7 +12,13 @@ import java.util.List;
 
 import net.minecraft.server.Packet20NamedEntitySpawn;
 
-import org.bukkit.*;
+import org.bukkit.Bukkit;
+import org.bukkit.ChatColor;
+import org.bukkit.GameMode;
+import org.bukkit.Location;
+import org.bukkit.Material;
+import org.bukkit.World;
+import org.bukkit.WorldCreator;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.craftbukkit.entity.CraftPlayer;
@@ -26,12 +32,18 @@ import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.event.player.PlayerRespawnEvent;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.kitteh.vanish.VanishPerms;
 import org.kitteh.vanish.staticaccess.VanishNoPacket;
 import org.kitteh.vanish.staticaccess.VanishNotLoadedException;
 
 import to.joe.j2mc.core.J2MC_Manager;
-import to.joe.j2mc.survival.command.*;
+import to.joe.j2mc.survival.command.ArenaCommand;
+import to.joe.j2mc.survival.command.JoinCommand;
+import to.joe.j2mc.survival.command.LeaveCommand;
+import to.joe.j2mc.survival.command.LobbyCommand;
+import to.joe.j2mc.survival.command.ReadyCommand;
 
 public class J2MC_Survival extends JavaPlugin implements Listener {
 
@@ -73,16 +85,11 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
     }
 
     public enum GameStatus {
-        PreRound,
-        Countdown,
-        InGame,
-        PostRound,
+        PreRound, Countdown, InGame, PostRound,
     }
 
     public enum LossMethod {
-        Disconnect,
-        Killed,
-        Left,
+        Disconnect, Killed, Left,
     }
 
     public GameStatus status = GameStatus.PreRound;
@@ -219,16 +226,17 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
         this.getCommand("ready").setExecutor(new ReadyCommand(this));
         this.getCommand("lobby").setExecutor(new LobbyCommand(this));
         this.getCommand("arena").setExecutor(new ArenaCommand(this));
-        //XXX
+
         J2MC_Manager.getPermissions().addFlagPermissionRelation("j2mc.chat.spectator", 'P', true);
-        J2MC_Manager.getPermissions().addFlagPermissionRelation("vanish.see", 'P', true);
+        //J2MC_Manager.getPermissions().addFlagPermissionRelation("vanish.see", 'P', true);
         J2MC_Manager.getPermissions().addFlagPermissionRelation("worldedit.navigation.thru", 'P', true);
-        J2MC_Manager.getPermissions().addFlagPermissionRelation("vanish.nopickup", 'P', true);
-        J2MC_Manager.getPermissions().addFlagPermissionRelation("vanish.nofollow", 'P', true);
-        J2MC_Manager.getPermissions().addFlagPermissionRelation("vanish.notrample", 'P', true);
-        J2MC_Manager.getPermissions().addFlagPermissionRelation("vanish.nointeract", 'P', true);
-        J2MC_Manager.getPermissions().addFlagPermissionRelation("vanish.silentchests", 'P', true);
-        J2MC_Manager.getPermissions().addFlagPermissionRelation("vanish.preventdamage", 'P', true);
+        //J2MC_Manager.getPermissions().addFlagPermissionRelation("vanish.nopickup", 'P', true);
+        //J2MC_Manager.getPermissions().addFlagPermissionRelation("vanish.nofollow", 'P', true);
+        //J2MC_Manager.getPermissions().addFlagPermissionRelation("vanish.notrample", 'P', true);
+        //J2MC_Manager.getPermissions().addFlagPermissionRelation("vanish.nointeract", 'P', true);
+        //J2MC_Manager.getPermissions().addFlagPermissionRelation("vanish.silentchests", 'P', true);
+        //J2MC_Manager.getPermissions().addFlagPermissionRelation("vanish.preventdamage", 'P', true);
+        //J2MC_Manager.getPermissions().addFlagPermissionRelation("j2mc.teleport.to", 'P', true);
 
         //Run announceDead() once per day
         J2MC_Manager.getCore().getServer().getScheduler().scheduleSyncRepeatingTask(this, new Runnable() {
@@ -349,7 +357,6 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
 
     public void handleLoss(Player p, LossMethod m) {
         String n = p.getName();
-        setSpectate(p, true);
         switch (m) {
             case Disconnect:
                 getServer().broadcast(ChatColor.RED + n + ChatColor.AQUA + " has disconnected", "j2mc.chat.spectator");
@@ -361,9 +368,11 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
                 getServer().broadcast(ChatColor.RED + n + ChatColor.AQUA + " has left the game", "j2mc.chat.spectator");
                 break;
         }
+        setSpectate(p, true);
         deadPlayers.add(n);
         final boolean weather = p.getWorld().isThundering();
         p.getWorld().strikeLightningEffect(p.getLocation());
+        getServer().broadcastMessage(ChatColor.AQUA + "You hear the sound of a cannon in the distance");
         p.sendMessage(ChatColor.RED + "You have been eliminated");
         p.getWorld().setStorm(weather);
         participants.remove(n);
@@ -492,11 +501,28 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
             if (spec && !VanishNoPacket.isVanished(player.getName())) {
                 player.setGameMode(GameMode.ADVENTURE);
                 J2MC_Manager.getPermissions().addFlag(player, 'P');
+                //XXX
+                VanishPerms.toggleSeeAll(player);
+                VanishPerms.toggleNoPickup(player);
+                VanishPerms.toggleNoFollow(player);
+                //Trample?
+                VanishPerms.toggleNoInteract(player);
+                VanishPerms.toggleSilentChestReads(player);
+                VanishPerms.toggleDamageIn(player);
+                VanishPerms.toggleDamageOut(player);
                 VanishNoPacket.toggleVanishSilent(player);
                 player.setAllowFlight(true);
             } else if (!spec && VanishNoPacket.isVanished(player.getName())) {
                 player.setGameMode(GameMode.SURVIVAL);
                 J2MC_Manager.getPermissions().delFlag(player, 'P');
+                VanishPerms.toggleSeeAll(player);
+                VanishPerms.toggleNoPickup(player);
+                VanishPerms.toggleNoFollow(player);
+                //Trample?
+                VanishPerms.toggleNoInteract(player);
+                VanishPerms.toggleSilentChestReads(player);
+                VanishPerms.toggleDamageIn(player);
+                VanishPerms.toggleDamageOut(player);
                 VanishNoPacket.toggleVanishSilent(player);
                 player.setAllowFlight(false);
             }
@@ -512,5 +538,16 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
             Location l = event.getClickedBlock().getLocation();
             getServer().getLogger().info("- " + l.getBlockX() + "," + l.getBlockY() + "," + l.getBlockZ());
         }
+    }
+
+    @EventHandler
+    public void onRespawn(PlayerRespawnEvent event) {
+        final Player p = event.getPlayer();
+        getServer().getScheduler().scheduleSyncDelayedTask(this, new Runnable() {
+            @Override
+            public void run() {
+                p.setAllowFlight(true);
+            }
+        }, 1);
     }
 }
