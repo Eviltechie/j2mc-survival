@@ -291,6 +291,8 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
                 startGame();
             }
         }, countdown * 20);
+        if (tubeMines)
+            getServer().broadcastMessage(ChatColor.RED + "Mines have been" + ChatColor.BOLD + " armed");
         getServer().broadcastMessage(ChatColor.AQUA + "The survival games begin in " + countdown + " seconds");
         getServer().broadcastMessage(ChatColor.AQUA + "Best of luck");
         for (int x = 1; x < countdown; x++) {
@@ -300,8 +302,10 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
     }
 
     public void startGame() {
-        getServer().broadcastMessage(ChatColor.RED + "" + ChatColor.BOLD + "BEGIN!");
         status = GameStatus.InGame;
+        if (tubeMines)
+            getServer().broadcastMessage(ChatColor.RED + "Mines have been" + ChatColor.BOLD + " disarmed");
+        getServer().broadcastMessage(ChatColor.RED + "" + ChatColor.BOLD + "BEGIN!");
 
         compassUpdateTask = getServer().getScheduler().scheduleSyncRepeatingTask(this, new Runnable() {
 
