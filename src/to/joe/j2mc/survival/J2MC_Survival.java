@@ -263,6 +263,8 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
         getServer().getScheduler().scheduleSyncDelayedTask(this, new Runnable() {
             @Override
             public void run() {
+                if (status != GameStatus.Countdown)
+                    return;
                 int number = totalTime - (totalTime - time);
                 if (number == 1)
                     getServer().broadcastMessage(ChatColor.RED + "" + ChatColor.BOLD + number + " second");
@@ -283,7 +285,7 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
                 fixTele(p, p2);
             }
         }
-        getServer().getScheduler().scheduleSyncDelayedTask(this, new Runnable() {
+        autostartTask = getServer().getScheduler().scheduleSyncDelayedTask(this, new Runnable() {
             @Override
             public void run() {
                 startGame();
@@ -381,6 +383,8 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
 
     public void checkForWinner() {
         if (participants.size() == 1) {
+            if (status == GameStatus.Countdown)
+                getServer().getScheduler().cancelTask(autostartTask);
             String winner = participants.get(0);
             Player p = getServer().getPlayer(winner);
             spm.preparePlayer(p);
@@ -407,6 +411,8 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
 
     @EventHandler
     public void onDisconnect(PlayerQuitEvent event) {
+        getServer().broadcast(event.getQuitMessage(), "j2mc.chat.spectator");
+        event.setQuitMessage(null);
         if (participants.contains(event.getPlayer().getName())) {
             switch (status) {
                 case InGame:
@@ -426,7 +432,7 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
     @EventHandler
     public void onDeath(PlayerDeathEvent event) {
         if (status == GameStatus.InGame || status == GameStatus.Countdown)
-            event.setDeathMessage("");
+            event.setDeathMessage(null);
         if (participants.contains(event.getEntity().getName())) {
             switch (status) {
                 case InGame:
@@ -466,6 +472,8 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
 
     @EventHandler
     public void onJoin(PlayerJoinEvent event) {
+        getServer().broadcast(event.getJoinMessage(), "j2mc.chat.spectator");
+        event.setJoinMessage(null);
         final Player player = event.getPlayer();
         this.getServer().getScheduler().scheduleSyncDelayedTask(this, new Runnable() {
             @Override
