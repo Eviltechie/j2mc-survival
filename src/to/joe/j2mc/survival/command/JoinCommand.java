@@ -22,32 +22,32 @@ public class JoinCommand extends MasterCommand {
             sender.sendMessage(ChatColor.RED + "Only players may use this command");
             return;
         }
-        if (plugin.participants.contains(player.getName())) {
+        if (plugin.getGame().getParticipants().contains(player.getName())) {
             sender.sendMessage(ChatColor.RED + "You are already in the survival game");
             return;
         }
-        switch (plugin.status) {
+        switch (plugin.getGame().getStatus()) {
             case InGame:
                 sender.sendMessage(ChatColor.RED + "You may not join a game in progress");
             case PostRound:
                 sender.sendMessage(ChatColor.RED + "Please wait for the next round before joining");
                 return;
             case PreRound:
-                if (this.plugin.spm.addPlayer(player.getName())) {
-                    this.plugin.getServer().broadcastMessage(ChatColor.RED + player.getName() + ChatColor.AQUA + " has entered the survival games!");
-                    this.plugin.participants.add(player.getName());
-                    if (this.plugin.participants.size() == this.plugin.maxPlayers) {
-                        this.plugin.startCountdown();
-                        this.plugin.getServer().broadcastMessage(ChatColor.AQUA + "All slots have been filled");
+                if (plugin.getGame().getSpawnPointManager().addPlayer(player.getName())) {
+                    plugin.getServer().broadcastMessage(ChatColor.RED + player.getName() + ChatColor.AQUA + " has entered the survival games!");
+                    plugin.getGame().getParticipants().add(player.getName());
+                    if (plugin.getGame().getParticipants().size() == plugin.getGame().getMaxPlayers()) {
+                        plugin.getGame().startCountdown();
+                        plugin.getServer().broadcastMessage(ChatColor.AQUA + "All slots have been filled");
                     }
                 } else {
                     sender.sendMessage(ChatColor.RED + "There are no free slots in the next round");
                 }
                 return;
             case Countdown:
-                if (this.plugin.spm.addPlayerLate(player)) {
-                    this.plugin.getServer().broadcastMessage(ChatColor.RED + player.getName() + ChatColor.AQUA + " has entered the survival games!");
-                    this.plugin.participants.add(player.getName());
+                if (plugin.getGame().getSpawnPointManager().addPlayerLate(player)) {
+                    plugin.getServer().broadcastMessage(ChatColor.RED + player.getName() + ChatColor.AQUA + " has entered the survival games!");
+                    plugin.getGame().getParticipants().add(player.getName());
                 } else {
                     sender.sendMessage(ChatColor.RED + "There are no free slots in this round");
                 }

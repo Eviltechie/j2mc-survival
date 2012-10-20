@@ -5,8 +5,8 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
 import to.joe.j2mc.core.command.MasterCommand;
+import to.joe.j2mc.survival.Game.LossMethod;
 import to.joe.j2mc.survival.J2MC_Survival;
-import to.joe.j2mc.survival.J2MC_Survival.LossMethod;
 
 public class LeaveCommand extends MasterCommand {
 
@@ -23,15 +23,15 @@ public class LeaveCommand extends MasterCommand {
             sender.sendMessage(ChatColor.RED + "Only players may use this command");
             return;
         }
-        switch (plugin.status) {
+        switch (plugin.getGame().getStatus()) {
             case InGame:
             case Countdown:
-                this.plugin.handleLoss(player, LossMethod.Left);
+                plugin.getGame().handleLoss(player, LossMethod.Left);
             case PreRound:
-                this.plugin.getServer().broadcastMessage(ChatColor.RED + player.getName() + ChatColor.AQUA + " has abandoned the survival games!");
-                this.plugin.spm.removePlayer(player.getName());
-                this.plugin.participants.remove(player.getName());
-                this.plugin.readyPlayers.remove(player.getName());
+                plugin.getServer().broadcastMessage(ChatColor.RED + player.getName() + ChatColor.AQUA + " has abandoned the survival games!");
+                plugin.getGame().getSpawnPointManager().removePlayer(player.getName());
+                plugin.getGame().getParticipants().remove(player.getName());
+                plugin.getGame().getReadyPlayers().remove(player.getName());
                 return;
             case PostRound:
                 sender.sendMessage(ChatColor.RED + "You cannot leave the survival games after they end");

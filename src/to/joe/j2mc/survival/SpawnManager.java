@@ -63,7 +63,7 @@ public class SpawnManager {
             }
         }
     }
-    
+
     public void spawnPlayers() {
         for (int x = 0; x < players.length; x++) {
             if (players[x] == null)
@@ -75,7 +75,7 @@ public class SpawnManager {
             p.teleport(spawns[x]);
         }
     }
-    
+
     public void preparePlayer(Player p) {
         this.plugin.setSpectate(p, false);
         p.setGameMode(GameMode.SURVIVAL);
@@ -90,7 +90,7 @@ public class SpawnManager {
         pInv.addItem(new ItemStack(Material.COMPASS));
         p.setHealth(p.getMaxHealth());
         p.setFoodLevel(20);
-        Collection <PotionEffect> effects = p.getActivePotionEffects();
+        Collection<PotionEffect> effects = p.getActivePotionEffects();
         for (PotionEffect e : effects) {
             p.removePotionEffect(e.getType());
         }

@@ -22,7 +22,7 @@ public class ReadyCommand extends MasterCommand {
             sender.sendMessage(ChatColor.RED + "Only players may use this command");
             return;
         }
-        switch(this.plugin.status) {
+        switch (plugin.getGame().getStatus()) {
             case Countdown:
                 sender.sendMessage(ChatColor.RED + "You cannot indicate ready, the countdown has already started");
                 return;
@@ -33,17 +33,17 @@ public class ReadyCommand extends MasterCommand {
                 sender.sendMessage(ChatColor.RED + "You cannot indicate ready, the next map is not loaded");
                 return;
         }
-        if (!this.plugin.participants.contains(player.getName())) {
+        if (!plugin.getGame().getParticipants().contains(player.getName())) {
             sender.sendMessage(ChatColor.RED + "You must be a participant to indicate ready");
             return;
         }
-        if (this.plugin.readyPlayers.contains(player.getName())) {
-            this.plugin.readyPlayers.remove(player.getName());
-            this.plugin.getServer().broadcastMessage(ChatColor.RED + player.getName() + ChatColor.AQUA + " is no longer ready to start");
+        if (plugin.getGame().getReadyPlayers().contains(player.getName())) {
+            plugin.getGame().getReadyPlayers().remove(player.getName());
+            plugin.getServer().broadcastMessage(ChatColor.RED + player.getName() + ChatColor.AQUA + " is no longer ready to start");
         } else {
-            this.plugin.readyPlayers.add(player.getName());
-            if (((double)this.plugin.readyPlayers.size() / this.plugin.participants.size() > this.plugin.minReadyPercent) && this.plugin.participants.size() >= this.plugin.minPlayers) {
-                this.plugin.startCountdown();
+            plugin.getGame().getReadyPlayers().add(player.getName());
+            if (((double) plugin.getGame().getReadyPlayers().size() / plugin.getGame().getParticipants().size() > this.plugin.minReadyPercent) && plugin.getGame().getParticipants().size() >= plugin.getGame().getMinPlayers()) {
+                plugin.getGame().startCountdown();
             } else {
                 this.plugin.getServer().broadcastMessage(ChatColor.RED + player.getName() + ChatColor.AQUA + " is ready to start");
             }
