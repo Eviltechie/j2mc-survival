@@ -1,27 +1,16 @@
 package to.joe.j2mc.survival;
 
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
 
-import net.minecraft.server.Packet20NamedEntitySpawn;
-
-import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
-import org.bukkit.WorldCreator;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
-import org.bukkit.craftbukkit.entity.CraftPlayer;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -33,56 +22,19 @@ import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerRespawnEvent;
+import org.bukkit.event.world.WorldLoadEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.kitteh.vanish.VanishPerms;
 import org.kitteh.vanish.staticaccess.VanishNoPacket;
 import org.kitteh.vanish.staticaccess.VanishNotLoadedException;
 
 import to.joe.j2mc.core.J2MC_Manager;
-import to.joe.j2mc.survival.command.ArenaCommand;
+import to.joe.j2mc.maps.J2MC_Maps;
 import to.joe.j2mc.survival.command.JoinCommand;
 import to.joe.j2mc.survival.command.LeaveCommand;
-import to.joe.j2mc.survival.command.LobbyCommand;
 import to.joe.j2mc.survival.command.ReadyCommand;
 
 public class J2MC_Survival extends JavaPlugin implements Listener {
-
-    public void copyFolder(File src, File dest) throws IOException {
-        if (src.isDirectory()) {
-            if (!dest.exists()) {
-                dest.mkdir();
-            }
-            String files[] = src.list();
-            for (String file : files) {
-                File srcFile = new File(src, file);
-                File destFile = new File(dest, file);
-                copyFolder(srcFile, destFile);
-            }
-        } else {
-            InputStream in = new FileInputStream(src);
-            OutputStream out = new FileOutputStream(dest);
-            byte[] buffer = new byte[1024];
-            int length;
-            while ((length = in.read(buffer)) > 0) {
-                out.write(buffer, 0, length);
-            }
-            in.close();
-            out.close();
-        }
-    }
-
-    public boolean deleteFolder(File dir) {
-        if (dir.isDirectory()) {
-            String[] children = dir.list();
-            for (int i = 0; i < children.length; i++) {
-                boolean success = deleteFolder(new File(dir, children[i]));
-                if (!success) {
-                    return false;
-                }
-            }
-        }
-        return dir.delete();
-    }
 
     public enum GameStatus {
         PreRound, Countdown, InGame, PostRound,
@@ -103,7 +55,6 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
     int countdown;
     int maxWait;
     public double minReadyPercent;
-    public World lobbyWorld;
     public World gameWorld;
     private FileConfiguration mapConfig;
     private File mapConfigFile;
@@ -113,6 +64,7 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
     String author;
     int autostartTask;
     int compassUpdateTask;
+    public boolean dormant = true;
 
     public void reloadCustomConfig() {
         if (mapConfigFile == null) {
@@ -141,42 +93,11 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
         tubeMines = this.getConfig().getBoolean("tubeMines");
     }
 
-    public void fixTele(final Player player1, final Player player2) {
-        if (player1.equals(player2))
-            return;
-        ((CraftPlayer) player1).getHandle().netServerHandler.sendPacket(new Packet20NamedEntitySpawn(((CraftPlayer) player2).getHandle()));
-        ((CraftPlayer) player2).getHandle().netServerHandler.sendPacket(new Packet20NamedEntitySpawn(((CraftPlayer) player1).getHandle()));
-        Bukkit.getScheduler().scheduleSyncDelayedTask(this, new Runnable() {
+    public void loadMap(String mapName) {
 
-            @Override
-            public void run() {
-                ((CraftPlayer) player1).getHandle().netServerHandler.sendPacket(new Packet20NamedEntitySpawn(((CraftPlayer) player2).getHandle()));
-                ((CraftPlayer) player2).getHandle().netServerHandler.sendPacket(new Packet20NamedEntitySpawn(((CraftPlayer) player1).getHandle()));
-            }
-        }, 20);
-    }
+        gameWorld = J2MC_Maps.getGameWorld();
 
-    public void loadMap(boolean firstLoad) {
-        List<Player> toTeleport = Arrays.asList(this.getServer().getOnlinePlayers());
-        for (Player p : toTeleport) {
-            if (p.getWorld().equals(gameWorld))
-                toLobby(p);
-        }
-        String newMap = mapCycle.get(0);
-        mapCycle.add(mapCycle.remove(0));
-        if (!firstLoad) {
-            this.getServer().unloadWorld(gameWorld, false);
-            deleteFolder(new File(gameWorld.getName()));
-        }
-        try {
-            copyFolder(new File(newMap + "_bak"), new File(newMap));
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-
-        gameWorld = this.getServer().createWorld(new WorldCreator(newMap));
-
-        mapConfigFile = new File(getDataFolder(), newMap + ".yml");
+        mapConfigFile = new File(getDataFolder(), mapName + ".yml");
         reloadCustomConfig();
         minPlayers = mapConfig.getInt("minPlayers");
         maxPlayers = mapConfig.getInt("maxPlayers");
@@ -185,11 +106,6 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
         spm = new SpawnManager(gameWorld, mapConfig.getStringList("spawns"), this);
         breakableBlocks = new ArrayList<Integer>(mapConfig.getIntegerList("breakableBlocks"));
 
-        for (Player p : this.getServer().getOnlinePlayers()) {
-            for (Player p2 : this.getServer().getOnlinePlayers()) {
-                fixTele(p, p2);
-            }
-        }
         status = GameStatus.PreRound;
         participants.clear();
         readyPlayers.clear();
@@ -203,14 +119,14 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
                 if (participants.size() >= minPlayers) {
                     startCountdown();
                 } else {
-                    loadMap(false);
+                    J2MC_Maps.finished();
                 }
             }
         }, maxWait * 20);
     }
 
     public void toLobby(Player p) {
-        p.teleport(lobbyWorld.getSpawnLocation());
+        J2MC_Maps.sendToLobby(p);
         p.setAllowFlight(true);
     }
 
@@ -224,8 +140,6 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
         this.getCommand("join").setExecutor(new JoinCommand(this));
         this.getCommand("leave").setExecutor(new LeaveCommand(this));
         this.getCommand("ready").setExecutor(new ReadyCommand(this));
-        this.getCommand("lobby").setExecutor(new LobbyCommand(this));
-        this.getCommand("arena").setExecutor(new ArenaCommand(this));
 
         J2MC_Manager.getPermissions().addFlagPermissionRelation("j2mc.chat.spectator", 'P', true);
         //J2MC_Manager.getPermissions().addFlagPermissionRelation("vanish.see", 'P', true);
@@ -246,17 +160,6 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
                     announceDead();
             }
         }, 1000, 1000);
-
-        //We are assuming that the first world loaded (which should be defined in server.properties) will be the lobby.
-        //Also good if the plugin breaks.
-        lobbyWorld = this.getServer().getWorlds().get(0);
-        loadMap(true);
-    }
-
-    @Override
-    public void onDisable() {
-        this.getServer().unloadWorld(gameWorld, false);
-        deleteFolder(new File(gameWorld.getName()));
     }
 
     public void scheduleCountdownMessage(final int time, final int totalTime) {
@@ -280,11 +183,7 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
         getServer().getScheduler().cancelTask(autostartTask);
         status = GameStatus.Countdown;
         spm.spawnPlayers();
-        for (Player p : this.getServer().getOnlinePlayers()) {
-            for (Player p2 : this.getServer().getOnlinePlayers()) {
-                fixTele(p, p2);
-            }
-        }
+
         autostartTask = getServer().getScheduler().scheduleSyncDelayedTask(this, new Runnable() {
             @Override
             public void run() {
@@ -404,12 +303,7 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
             status = GameStatus.PostRound;
             deadPlayers.clear();
             getServer().getScheduler().cancelTask(compassUpdateTask);
-            getServer().getScheduler().scheduleSyncDelayedTask(this, new Runnable() {
-                @Override
-                public void run() {
-                    loadMap(false);
-                }
-            }, 600);
+            J2MC_Maps.finished();
         }
     }
 
@@ -482,7 +376,7 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
         this.getServer().getScheduler().scheduleSyncDelayedTask(this, new Runnable() {
             @Override
             public void run() {
-                if (!player.getWorld().equals(lobbyWorld) || !player.getWorld().equals(gameWorld)) {
+                if (!player.getWorld().equals(J2MC_Maps.getLobbyWorld()) || !player.getWorld().equals(gameWorld)) {
                     toLobby(player);
                     setSpectate(player, true);
                     switch (status) {
@@ -513,7 +407,6 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
             if (spec && !VanishNoPacket.isVanished(player.getName())) {
                 player.setGameMode(GameMode.ADVENTURE);
                 J2MC_Manager.getPermissions().addFlag(player, 'P');
-                //XXX
                 VanishPerms.toggleSeeAll(player);
                 VanishPerms.toggleNoPickup(player);
                 VanishPerms.toggleNoFollow(player);
@@ -561,5 +454,13 @@ public class J2MC_Survival extends JavaPlugin implements Listener {
                 p.setAllowFlight(true);
             }
         }, 1);
+    }
+    
+    @EventHandler
+    public void onWorldLoad(WorldLoadEvent event) {
+        if (mapCycle.contains(event.getWorld().getName())) {
+            loadMap(event.getWorld().getName());
+            dormant = false;
+        }
     }
 }
