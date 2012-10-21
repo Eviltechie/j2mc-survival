@@ -50,6 +50,7 @@ public class Game {
             participants.add(p.getName());
         }
         if (participants.size() < 2) {
+            plugin.getServer().broadcastMessage(ChatColor.RED + "Not enough players to start a game");
             J2MC_Maps.finished();
             return;
         }

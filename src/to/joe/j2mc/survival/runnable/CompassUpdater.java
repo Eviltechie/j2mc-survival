@@ -17,6 +17,8 @@ public class CompassUpdater implements Runnable {
     @Override
     public void run() {
         ArrayList<String> participants = plugin.getGame().getParticipants();
+        if (participants.size() < 2)
+            return;
         for (String s1 : participants) {
             Player p1 = plugin.getServer().getPlayer(s1);
             ArrayList<String> participantsMinusPlayer = new ArrayList<String>(participants);
