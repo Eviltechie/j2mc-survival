@@ -46,18 +46,14 @@ public class Game {
         maxPlayers = mapConfig.getInt("maxPlayers");
         spawnManager = new SpawnManager(gameWorld, mapConfig.getStringList("spawns"), plugin);
         breakableBlocks = new HashSet<Integer>(mapConfig.getIntegerList("breakableBlocks"));
-
+        for (Player p : plugin.getServer().getOnlinePlayers()) {
+            participants.add(p.getName());
+        }
+        if (participants.size() < 2) {
+            J2MC_Maps.finished();
+            return;
+        }
         startCountdown();
-
-        plugin.getServer().getScheduler().scheduleSyncDelayedTask(plugin, new Runnable() {
-            @Override
-            public void run() {
-                status = GameStatus.InGame;
-                if (plugin.tubeMines)
-                    plugin.getServer().broadcastMessage(ChatColor.RED + "Mines have been" + ChatColor.BOLD + " disarmed");
-                plugin.getServer().broadcastMessage(ChatColor.RED + "" + ChatColor.BOLD + "BEGIN!");
-            }
-        }, plugin.countdown * 20);
     }
 
     public GameStatus getStatus() {
@@ -172,6 +168,16 @@ public class Game {
             if (x <= 10 || x % 10 == 0)
                 scheduleCountdownMessage(x, plugin.countdown);
         }
+        
+        plugin.getServer().getScheduler().scheduleSyncDelayedTask(plugin, new Runnable() {
+            @Override
+            public void run() {
+                status = GameStatus.InGame;
+                if (plugin.tubeMines)
+                    plugin.getServer().broadcastMessage(ChatColor.RED + "Mines have been" + ChatColor.BOLD + " disarmed");
+                plugin.getServer().broadcastMessage(ChatColor.RED + "" + ChatColor.BOLD + "BEGIN!");
+            }
+        }, plugin.countdown * 20);
     }
 
     //TODO Maybe optimize this

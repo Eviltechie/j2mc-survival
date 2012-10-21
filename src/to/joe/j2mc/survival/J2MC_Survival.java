@@ -16,6 +16,8 @@ import to.joe.j2mc.core.J2MC_Manager;
 import to.joe.j2mc.maps.J2MC_Maps;
 import to.joe.j2mc.survival.command.JoinCommand;
 import to.joe.j2mc.survival.command.ReadyCommand;
+import to.joe.j2mc.survival.listeners.ArenaCommandListener;
+import to.joe.j2mc.survival.listeners.LobbyCommandLstener;
 import to.joe.j2mc.survival.listeners.PlayerBlockBreakListener;
 import to.joe.j2mc.survival.listeners.PlayerDeathListener;
 import to.joe.j2mc.survival.listeners.PlayerDropItemListener;
@@ -65,6 +67,8 @@ public class J2MC_Survival extends JavaPlugin {
         listeners.add(new PlayerInteractListener(this));
         listeners.add(new PlayerDropItemListener(this));
         listeners.add(new RTVListener(this));
+        listeners.add(new ArenaCommandListener(this));
+        listeners.add(new LobbyCommandLstener(this));
 
         J2MC_Manager.getPermissions().addFlagPermissionRelation("j2mc.chat.spectator", 'P', true);
         J2MC_Manager.getPermissions().addFlagPermissionRelation("worldedit.navigation.thru", 'P', true);
